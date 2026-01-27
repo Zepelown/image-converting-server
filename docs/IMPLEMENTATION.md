@@ -25,12 +25,12 @@
 - `config/config.yaml` - 설정 파일 예시
 
 **작업 목록**:
-- [ ] 설정 구조체 정의 (`Config`, `R2Config`, `ConversionConfig`, `ResizeConfig`, `CronConfig`)
-- [ ] YAML 파일 로드 함수 구현
-- [ ] 설정 검증 함수 구현 (필수 필드 확인)
-- [ ] 환경 변수 지원 (선택적)
-- [ ] 기본값 설정
-- [ ] 설정 파일 예시 작성
+- [x] 설정 구조체 정의 (`Config`, `R2Config`, `ConversionConfig`, `ResizeConfig`, `CronConfig`)
+- [x] YAML 파일 로드 함수 구현
+- [x] 설정 검증 함수 구현 (필수 필드 확인)
+- [x] 환경 변수 지원 (선택적)
+- [x] 기본값 설정
+- [x] 설정 파일 예시 작성
 
 **의존성**: 없음
 
@@ -43,17 +43,19 @@
 **목표**: Cloudflare R2에 접속하여 이미지를 다운로드/업로드하고 객체 목록을 조회하는 기능 구현
 
 **파일 생성**:
-- `r2/client.go` - R2 클라이언트 구현
+- `r2/client.go` - R2 클라이언트 구현 및 인터페이스 정의
 
 **작업 목록**:
-- [ ] AWS SDK v2 설정 및 R2 엔드포인트 구성
-- [ ] R2 클라이언트 초기화 함수 구현
-- [ ] 이미지 다운로드 함수 구현 (`DownloadImage`)
-- [ ] 이미지 업로드 함수 구현 (`UploadImage`)
-- [ ] 객체 목록 조회 함수 구현 (`ListObjects`)
-- [ ] 마지막 수정 시간 이후 객체 필터링
-- [ ] 에러 처리 및 로깅
-- [ ] 연결 테스트 함수 작성
+- [x] AWS SDK v2 설정 및 R2 엔드포인트 구성 (`s3.Options.BaseEndpoint`)
+- [x] R2 client 인터페이스 (`StorageClient`) 및 구조체 정의
+- [x] R2 client 초기화 함수 구현 (`NewClient`)
+- [x] 이미지 다운로드 함수 구현 (`DownloadImage`)
+- [x] 이미지 업로드 함수 구현 (`UploadImage`)
+- [x] 객체 목록 조회 함수 구현 (`ListObjects`)
+- [x] 마지막 수정 시간 이후 객체 필터링 로직 구현
+- [x] 에러 처리 및 로깅 (AWS SDK 에러 감지)
+- [x] `r2/client_test.go` 작성 및 단위 테스트
+- [x] 연결 테스트 코드 작성
 
 **의존성**: 
 - Phase 1 (설정 관리)
@@ -255,16 +257,16 @@ state/ ───┘
 ### Phase별 체크리스트
 
 #### Phase 1: 설정 관리
-- [ ] `config/config.go` 구현 완료
-- [ ] `config/config.yaml` 예시 작성
-- [ ] 설정 로드 테스트 통과
-- [ ] 설정 검증 테스트 통과
+- [x] `config/config.go` 구현 완료
+- [x] `config/config.yaml` 예시 작성
+- [x] 설정 로드 테스트 통과
+- [x] 설정 검증 테스트 통과
 
 #### Phase 2: R2 클라이언트
-- [ ] `r2/client.go` 구현 완료
-- [ ] R2 연결 테스트 통과
-- [ ] 다운로드/업로드 테스트 통과
-- [ ] 객체 목록 조회 테스트 통과
+- [x] `r2/client.go` 구현 완료
+- [x] R2 연결 테스트 통과
+- [x] 다운로드/업로드 테스트 통과
+- [x] 객체 목록 조회 테스트 통과
 
 #### Phase 3: 이미지 프로세서
 - [ ] `processor/converter.go` 구현 완료
