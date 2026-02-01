@@ -137,6 +137,18 @@ func (j *Job) ProcessImages() {
 		log.Printf("[INFO] Successfully converted %s to %s", key, destKey)
 		processedCount++
 
+		// Delete original image
+		/*
+			if key != destKey {
+				err = j.r2Client.DeleteObject(ctx, key)
+				if err != nil {
+					log.Printf("[WARN] Failed to delete original image %s: %v", key, err)
+				} else {
+					log.Printf("[INFO] Deleted original image: %s", key)
+				}
+			}
+		*/
+
 		// Note: We might want to keep track of the latest LastModified time from the objects
 		// but since we don't have it here (ListObjects only returns keys),
 		// we'll update based on the current time or some other logic.

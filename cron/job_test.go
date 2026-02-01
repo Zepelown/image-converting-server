@@ -29,6 +29,9 @@ func (m *mockStorageClient) ListObjects(ctx context.Context, since time.Time) ([
 func (m *mockStorageClient) TestConnection(ctx context.Context) error {
 	return nil
 }
+func (m *mockStorageClient) DeleteObject(ctx context.Context, key string) error {
+	return nil
+}
 
 func TestProcessImages(t *testing.T) {
 	// 1. Setup temp directory and state file

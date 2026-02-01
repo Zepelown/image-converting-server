@@ -21,6 +21,7 @@ type StorageClient interface {
 	UploadImage(ctx context.Context, key string, data []byte, contentType string) error
 	ListObjects(ctx context.Context, since time.Time) ([]string, error)
 	TestConnection(ctx context.Context) error
+	DeleteObject(ctx context.Context, key string) error
 }
 
 // s3API defines the subset of S3 client methods used by r2Client for testability
@@ -29,6 +30,7 @@ type s3API interface {
 	PutObject(ctx context.Context, params *s3.PutObjectInput, optFns ...func(*s3.Options)) (*s3.PutObjectOutput, error)
 	ListObjectsV2(ctx context.Context, params *s3.ListObjectsV2Input, optFns ...func(*s3.Options)) (*s3.ListObjectsV2Output, error)
 	HeadBucket(ctx context.Context, params *s3.HeadBucketInput, optFns ...func(*s3.Options)) (*s3.HeadBucketOutput, error)
+	DeleteObject(ctx context.Context, params *s3.DeleteObjectInput, optFns ...func(*s3.Options)) (*s3.DeleteObjectOutput, error)
 }
 
 type r2Client struct {
@@ -124,6 +126,18 @@ func (r *r2Client) TestConnection(ctx context.Context) error {
 	})
 	if err != nil {
 		return fmt.Errorf("failed to connect to R2 bucket %s: %w", r.bucket, err)
+	}
+	return nil
+}
+
+// DeleteObject deletes an object from R2
+func (r *r2Client) DeleteObject(ctx context.Context, key string) error {
+	_, err := r.client.DeleteObject(ctx, &s3.DeleteObjectInput{
+		Bucket: aws.String(r.bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to delete object from R2 (key: %s): %w", key, err)
 	}
 	return nil
 }

@@ -188,7 +188,20 @@ func (h *Handler) HandleConvert(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 6. Return response
+	// 6. Delete original image if it was from R2 and destination is different
+	/*
+		if strings.HasPrefix(source, "r2://") && r2Key != destKey {
+			err = h.storageClient.DeleteObject(r.Context(), r2Key)
+			if err != nil {
+				log.Printf("[WARN] Failed to delete original image %s: %v", r2Key, err)
+				// Don't return error here, as conversion was successful
+			} else {
+				log.Printf("[INFO] Deleted original image: %s", r2Key)
+			}
+		}
+	*/
+
+	// 7. Return response
 	res := ConvertResponse{
 		Success:       true,
 		Message:       "Image converted successfully",

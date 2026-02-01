@@ -40,6 +40,10 @@ func (m *mockStorageClient) TestConnection(ctx context.Context) error {
 	return m.testFunc(ctx)
 }
 
+func (m *mockStorageClient) DeleteObject(ctx context.Context, key string) error {
+	return nil
+}
+
 func TestHandleHealth(t *testing.T) {
 	h := NewHandler(nil, nil, nil)
 	req := httptest.NewRequest("GET", "/health", nil)
