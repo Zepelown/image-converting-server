@@ -1,0 +1,14 @@
+services:
+  app:
+    build: .
+    container_name: image-converting-server
+    ports:
+      - "${SERVER_PORT:-8080}:${SERVER_PORT:-8080}"
+    volumes:
+      - ./config:/app/config
+      - ./data:/app/data
+    env_file:
+      - .env
+    environment:
+      - SERVER_PORT=${SERVER_PORT:-8080}
+    restart: always
