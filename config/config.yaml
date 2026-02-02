@@ -27,5 +27,5 @@ cron:
 
 # 서버 설정
 server:
-  port: 8080
+  port: 4000
   timeout_seconds: 30

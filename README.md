@@ -1,6 +1,14 @@
-# image-converting-server
+# Image Converting Server
 
-Image converting server built with Go.
+A high-performance image processing service built with Go, designed for seamless integration with **Cloudflare R2** (S3-compatible storage). This server automates image conversion to **WebP** and provides on-the-fly **resizing** via HTTP API or scheduled cron jobs.
+
+## Features
+
+- **Automated WebP Conversion**: Automatically converts various image formats (JPEG, PNG, GIF, BMP, TIFF) to WebP to reduce storage and bandwidth costs.
+- **Cloudflare R2 Integration**: Specifically optimized for Cloudflare R2, providing a cost-effective alternative to AWS S3.
+- **On-the-fly Resizing**: Resize images dynamically using HTTP query parameters or predefined presets (e.g., thumbnail, medium, large).
+- **Scheduled Cron Jobs**: Periodically scans your R2 bucket for new images and converts them automatically to keep your storage optimized.
+- **State Management**: Tracks processing status to ensure efficient incremental updates without reprocessing existing images.
 
 ## Getting Started
 
