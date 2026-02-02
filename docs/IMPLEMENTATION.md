@@ -28,7 +28,7 @@
 - [x] 설정 구조체 정의 (`Config`, `R2Config`, `ConversionConfig`, `ResizeConfig`, `CronConfig`)
 - [x] YAML 파일 로드 함수 구현
 - [x] 설정 검증 함수 구현 (필수 필드 확인)
-- [x] 환경 변수 지원 (선택적)
+- [x] 환경 변수 및 .env 파일 지원 (R2 관련 필수)
 - [x] 기본값 설정
 - [x] 설정 파일 예시 작성
 

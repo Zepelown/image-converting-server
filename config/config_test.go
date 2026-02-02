@@ -210,6 +210,58 @@ server:
 	}
 }
 
+func TestLoadConfigWithoutR2InYaml(t *testing.T) {
+	// Set environment variables
+	os.Setenv("R2_ACCESS_KEY", "env-access-key")
+	os.Setenv("R2_SECRET_KEY", "env-secret-key")
+	os.Setenv("R2_ENDPOINT", "https://env.r2.cloudflarestorage.com")
+	os.Setenv("R2_BUCKET", "env-bucket")
+	defer func() {
+		os.Unsetenv("R2_ACCESS_KEY")
+		os.Unsetenv("R2_SECRET_KEY")
+		os.Unsetenv("R2_ENDPOINT")
+		os.Unsetenv("R2_BUCKET")
+	}()
+
+	// Create a config file without r2 section
+	tmpFile, err := os.CreateTemp("", "test-config-no-r2-*.yaml")
+	if err != nil {
+		t.Fatalf("Failed to create temp file: %v", err)
+	}
+	defer os.Remove(tmpFile.Name())
+
+	testConfig := `conversion:
+  quality: 90
+server:
+  port: 8080
+`
+
+	if _, err := tmpFile.WriteString(testConfig); err != nil {
+		t.Fatalf("Failed to write test config: %v", err)
+	}
+	tmpFile.Close()
+
+	// Load config
+	config, err := Load(tmpFile.Name())
+	if err != nil {
+		t.Fatalf("Failed to load config: %v", err)
+	}
+
+	// Environment variables should still be loaded
+	if config.R2.AccessKey != "env-access-key" {
+		t.Errorf("Expected env access_key 'env-access-key', got '%s'", config.R2.AccessKey)
+	}
+	if config.R2.SecretKey != "env-secret-key" {
+		t.Errorf("Expected env secret_key 'env-secret-key', got '%s'", config.R2.SecretKey)
+	}
+	if config.R2.Endpoint != "https://env.r2.cloudflarestorage.com" {
+		t.Errorf("Expected env endpoint 'https://env.r2.cloudflarestorage.com', got '%s'", config.R2.Endpoint)
+	}
+	if config.R2.Bucket != "env-bucket" {
+		t.Errorf("Expected env bucket 'env-bucket', got '%s'", config.R2.Bucket)
+	}
+}
+
 func TestLoadConfigWithEnvFile(t *testing.T) {
 	// Create a temporary .env file
 	tmpEnvFile, err := os.CreateTemp("", ".env-*")

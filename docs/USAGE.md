@@ -82,11 +82,7 @@ touch config/config.yaml
 `config/config.yaml` 파일을 열고 R2 접속 정보를 입력합니다:
 
 ```yaml
-r2:
-  access_key: "your-access-key"
-  secret_key: "your-secret-key"
-  endpoint: "https://your-account-id.r2.cloudflarestorage.com"
-  bucket: "your-bucket-name"
+# Note: R2 접속 정보는 보안을 위해 환경 변수(.env)로 제공해야 합니다.
 
 conversion:
   formats: ["jpeg", "jpg", "png", "gif", "bmp", "tiff"]
@@ -116,13 +112,16 @@ server:
 
 **보안 권장사항**: 민감한 정보는 환경 변수로 관리하세요. 자세한 내용은 [CONFIG.md](./CONFIG.md) 참조.
 
-### 3. 환경 변수 설정 (선택적)
+### 3. 환경 변수 설정 (필수)
+
+R2 접속 정보는 반드시 환경 변수 또는 `.env` 파일로 제공해야 합니다:
 
 ```bash
-export R2_ACCESS_KEY="your-access-key"
-export R2_SECRET_KEY="your-secret-key"
-export R2_ENDPOINT="https://your-account-id.r2.cloudflarestorage.com"
-export R2_BUCKET="your-bucket-name"
+# .env 파일 예시
+R2_ACCESS_KEY="your-access-key"
+R2_SECRET_KEY="your-secret-key"
+R2_ENDPOINT="https://your-account-id.r2.cloudflarestorage.com"
+R2_BUCKET="your-bucket-name"
 ```
 
 ---

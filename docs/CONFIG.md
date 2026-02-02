@@ -16,11 +16,7 @@ go run main.go -config /path/to/custom-config.yaml
 ### 전체 구조
 
 ```yaml
-r2:
-  access_key: "your-access-key"
-  secret_key: "your-secret-key"
-  endpoint: "https://your-account-id.r2.cloudflarestorage.com"
-  bucket: "your-bucket-name"
+# Note: r2 관련 설정은 .env 파일 또는 환경 변수를 통해 제공해야 합니다.
 
 conversion:
   formats: ["jpeg", "jpg", "png", "gif", "bmp", "tiff"]
@@ -54,40 +50,26 @@ server:
 
 ### R2 설정 (`r2`)
 
-Cloudflare R2 접속 정보를 설정합니다.
+Cloudflare R2 접속 정보는 보안을 위해 **환경 변수** 또는 **.env 파일**을 통해 설정하는 것을 강력히 권장합니다. 설정 파일(`config.yaml`)에서는 생략 가능하며, 환경 변수가 설정 파일의 값보다 우선순위가 높습니다.
 
-#### `access_key` (필수)
-- **타입**: string
+> [!IMPORTANT]
+> 현재 권장되는 방식은 `config.yaml`에서 `r2` 섹션을 완전히 제거하고 환경 변수만 사용하는 것입니다.
+
+#### `R2_ACCESS_KEY` (필수)
 - **설명**: Cloudflare R2 API Access Key ID
 - **예시**: `"abc123def456ghi789"`
-- **보안**: 민감 정보 - 환경 변수 사용 권장
 
-#### `secret_key` (필수)
-- **타입**: string
+#### `R2_SECRET_KEY` (필수)
 - **설명**: Cloudflare R2 API Secret Access Key
 - **예시**: `"secret123456789abcdef"`
-- **보안**: 민감 정보 - 환경 변수 사용 권장
 
-#### `endpoint` (필수)
-- **타입**: string
+#### `R2_ENDPOINT` (필수)
 - **설명**: Cloudflare R2 엔드포인트 URL
 - **형식**: `https://{account-id}.r2.cloudflarestorage.com`
-- **예시**: `"https://abc123def456.r2.cloudflarestorage.com"`
-- **참고**: Cloudflare 대시보드에서 확인 가능
 
-#### `bucket` (필수)
-- **타입**: string
+#### `R2_BUCKET` (필수)
 - **설명**: 이미지가 저장된 R2 버킷 이름
 - **예시**: `"my-image-bucket"`
-
-**예시**:
-```yaml
-r2:
-  access_key: "your-access-key"
-  secret_key: "your-secret-key"
-  endpoint: "https://abc123def456.r2.cloudflarestorage.com"
-  bucket: "my-image-bucket"
-```
 
 ---
 
@@ -227,12 +209,7 @@ server:
 ## 전체 설정 파일 예시
 
 ```yaml
-# Cloudflare R2 설정
-r2:
-  access_key: "your-access-key-here"
-  secret_key: "your-secret-key-here"
-  endpoint: "https://abc123def456.r2.cloudflarestorage.com"
-  bucket: "my-image-bucket"
+# R2 관련 설정은 .env 파일 또는 환경 변수로 설정하세요.
 
 # 이미지 변환 설정
 conversion:
@@ -363,11 +340,7 @@ R2 API 키는 필요한 최소 권한만 부여:
 새 프로젝트를 시작할 때 사용할 수 있는 최소 설정 템플릿:
 
 ```yaml
-r2:
-  access_key: ""  # 환경 변수 R2_ACCESS_KEY 사용 권장
-  secret_key: ""  # 환경 변수 R2_SECRET_KEY 사용 권장
-  endpoint: ""
-  bucket: ""
+# R2 설정은 .env 파일을 사용하세요.
 
 conversion:
   formats: ["jpeg", "jpg", "png", "gif"]
