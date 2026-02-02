@@ -32,8 +32,8 @@ COPY --from=builder /app/config ./config
 # Create data directory for state
 RUN mkdir -p data
 
-# Expose port (default 8080, can be overridden by env)
-EXPOSE 8080
+# Expose port (default 4000, can be overridden by env)
+EXPOSE 4000
 
 # Command to run the application
 CMD ["./image-server"]

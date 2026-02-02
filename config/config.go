@@ -133,7 +133,7 @@ func setDefaults(config *Config) {
 
 	// Server defaults
 	if config.Server.Port == 0 {
-		config.Server.Port = 8080
+		config.Server.Port = 4000
 	}
 	if config.Server.TimeoutSeconds == 0 {
 		config.Server.TimeoutSeconds = 30

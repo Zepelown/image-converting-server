@@ -28,7 +28,7 @@ go mod download
 go run main.go
 ```
 
-The server will start on `http://localhost:8080`
+The server will start on `http://localhost:4000`
 
 ### Running with Docker (Recommended)
 
@@ -42,7 +42,7 @@ The server will start on `http://localhost:8080`
     ```bash
     docker-compose up -d
     ```
-    The server will start on `http://localhost:8080` (default).
+    The server will start on `http://localhost:4000` (default).
 
 3.  **Port Customization**:
     To use a different port, set `SERVER_PORT` in your `.env` file or environment:

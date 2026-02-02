@@ -106,7 +106,7 @@ cron:
   enabled: true
 
 server:
-  port: 8080
+  port: 4000
   timeout_seconds: 30
 ```
 
@@ -201,7 +201,7 @@ sudo systemctl status image-converting-server
 ### 헬스 체크
 
 ```bash
-curl http://localhost:8080/health
+curl http://localhost:4000/health
 ```
 
 **응답**:
@@ -214,7 +214,7 @@ curl http://localhost:8080/health
 ### 서버 정보 확인
 
 ```bash
-curl http://localhost:8080/
+curl http://localhost:4000/
 ```
 
 **응답**:
@@ -233,7 +233,7 @@ curl http://localhost:8080/
 R2에 저장된 이미지를 WebP로 변환:
 
 ```bash
-curl -X POST http://localhost:8080/api/convert \
+curl -X POST http://localhost:4000/api/convert \
   -H "Content-Type: application/json" \
   -d '{"source": "r2://my-bucket/images/photo.jpg"}'
 ```
@@ -253,7 +253,7 @@ curl -X POST http://localhost:8080/api/convert \
 ### 2. 리사이징 포함 변환
 
 ```bash
-curl -X POST "http://localhost:8080/api/convert?width=800&height=600" \
+curl -X POST "http://localhost:4000/api/convert?width=800&height=600" \
   -H "Content-Type: application/json" \
   -d '{"source": "r2://my-bucket/images/photo.jpg"}'
 ```
@@ -261,7 +261,7 @@ curl -X POST "http://localhost:8080/api/convert?width=800&height=600" \
 ### 3. 프리셋 크기 사용
 
 ```bash
-curl -X POST "http://localhost:8080/api/convert?preset=medium" \
+curl -X POST "http://localhost:4000/api/convert?preset=medium" \
   -H "Content-Type: application/json" \
   -d '{"source": "r2://my-bucket/images/photo.jpg"}'
 ```
@@ -269,7 +269,7 @@ curl -X POST "http://localhost:8080/api/convert?preset=medium" \
 ### 4. 외부 URL 변환
 
 ```bash
-curl -X POST http://localhost:8080/api/convert \
+curl -X POST http://localhost:4000/api/convert \
   -H "Content-Type: application/json" \
   -d '{"source": "https://example.com/image.png"}'
 ```
@@ -277,7 +277,7 @@ curl -X POST http://localhost:8080/api/convert \
 ### 5. GET 방식 사용
 
 ```bash
-curl "http://localhost:8080/api/convert?source=r2://my-bucket/images/photo.jpg&width=800&height=600"
+curl "http://localhost:4000/api/convert?source=r2://my-bucket/images/photo.jpg&width=800&height=600"
 ```
 
 더 많은 예시는 [API.md](./API.md) 참조.
@@ -391,19 +391,19 @@ Error: failed to connect to R2
 
 **증상**:
 ```
-Error: listen tcp :8080: bind: address already in use
+Error: listen tcp :4000: bind: address already in use
 ```
 
 **해결 방법**:
 1. 다른 포트 사용:
    ```yaml
    server:
-     port: 8081
+     port: 4001
    ```
 2. 또는 기존 프로세스 종료:
    ```bash
    # 포트 사용 중인 프로세스 찾기
-   lsof -i :8080
+   lsof -i :4000
    # 프로세스 종료
    kill <PID>
    ```
