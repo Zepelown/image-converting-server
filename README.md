@@ -50,10 +50,24 @@ The server will start on `http://localhost:4000`
     SERVER_PORT=9000 docker-compose up -d
     ```
 
+### Configuration
+
+Main settings live in `config/config.yaml`:
+
+- **Conversion**: formats, quality, max image size
+- **Resize presets**: thumbnail, medium, large (used as `?preset=thumbnail` in API)
+- **Cron**: scheduled WebP conversion job
+
+Cron uses standard cron expression **(minute hour day month weekday)** in **server local time**. Default `"0 12 * * *"` runs at **UTC 12:00** (noon UTC). On a UTC server that equals **21:00 KST**. Adjust the hour if your server uses a different timezone. See [docs/CRON.md](docs/CRON.md) for details.
+
 ### Endpoints
 
 - `GET /` - Main endpoint
 - `GET /health` - Health check endpoint
+
+### Documentation
+
+- [API](docs/API.md) · [Config](docs/CONFIG.md) · [Cron](docs/CRON.md) · [Usage](docs/USAGE.md)
 
 ## License
 

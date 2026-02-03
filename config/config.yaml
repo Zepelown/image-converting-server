@@ -22,7 +22,7 @@ resize:
 # schedule: Cron 표현식 형식 (분 시 일 월 요일)
 # 예: "0 2 * * *" = 매일 새벽 2시
 cron:
-  schedule: "0 2 * * *"
+  schedule: "0 12 * * *"
   enabled: true
 
 # 서버 설정
