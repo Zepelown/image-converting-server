@@ -83,6 +83,11 @@ func (j *Job) ProcessImages() {
 	}
 
 	// 3. List objects since last processed time
+	sinceStr := "beginning (full scan)"
+	if !currentState.LastProcessedTime.IsZero() {
+		sinceStr = currentState.LastProcessedTime.Format(time.RFC3339)
+	}
+	log.Printf("[INFO] Listing bucket: %s (since: %s)", j.cfg.R2.Bucket, sinceStr)
 	ctx := context.Background()
 	keys, err := j.r2Client.ListObjects(ctx, currentState.LastProcessedTime)
 	if err != nil {
