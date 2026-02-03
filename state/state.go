@@ -18,8 +18,8 @@ type State struct {
 // NewState creates a new State with default values.
 func NewState() *State {
 	return &State{
-		LastProcessedTime: time.Now(),
-		LastRunTime:       time.Now(),
+		LastProcessedTime: time.Time{},
+		LastRunTime:       time.Time{},
 		ProcessedCount:    0,
 		FailedCount:       0,
 	}
