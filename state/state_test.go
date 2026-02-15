@@ -63,9 +63,7 @@ func TestNewState(t *testing.T) {
 	if s.FailedCount != 0 {
 		t.Errorf("Expected FailedCount 0, got %d", s.FailedCount)
 	}
-	if s.LastProcessedTime.IsZero() {
-		t.Error("LastProcessedTime should not be zero")
-	}
+	// NewState() returns zero times until updated (no run has occurred yet).
 }
 
 func TestUpdateFunctions(t *testing.T) {

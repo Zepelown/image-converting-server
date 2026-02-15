@@ -1,3 +1,5 @@
+//go:build gen_sample
+
 package main
 
 import (

@@ -15,6 +15,7 @@ import (
 	"image-converting-server/cron"
 	"image-converting-server/processor"
 	"image-converting-server/r2"
+	"image-converting-server/webhook"
 )
 
 func main() {
@@ -48,6 +49,22 @@ func main() {
 		log.Fatalf("[FATAL] Failed to start cron job: %v", err)
 	}
 	defer cronJob.Stop()
+
+	// Start webhook retry worker when URL and retry are enabled
+	var retryWorkerCancel context.CancelFunc
+	if cfg.Webhook.URL != "" && cfg.Webhook.RetryEnabled {
+		retryCtx, cancel := context.WithCancel(context.Background())
+		retryWorkerCancel = cancel
+		go webhook.RunRetryWorker(retryCtx, webhook.RetryWorkerOptions{
+			PendingDir:   cfg.Webhook.PendingDir,
+			Interval:     time.Duration(cfg.Webhook.RetryIntervalMinutes) * time.Minute,
+			MaxRetries:   cfg.Webhook.MaxRetries,
+			SendTimeout:  10 * time.Second,
+		})
+	}
+	if retryWorkerCancel != nil {
+		defer retryWorkerCancel()
+	}
 
 	// 5. Setup HTTP Router
 	handler := api.NewHandler(storageClient, proc, cfg)

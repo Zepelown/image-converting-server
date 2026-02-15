@@ -21,7 +21,11 @@ type Config struct {
 
 // WebhookConfig contains webhook settings (URL is typically set via WEBHOOK_URL env only)
 type WebhookConfig struct {
-	URL string `yaml:"url"`
+	URL                   string `yaml:"url"`
+	RetryEnabled          bool   `yaml:"retry_enabled"`
+	RetryIntervalMinutes int    `yaml:"retry_interval_minutes"`
+	MaxRetries            int    `yaml:"max_retries"`
+	PendingDir            string `yaml:"pending_dir"`
 }
 
 // R2Config contains Cloudflare R2 connection settings
@@ -117,6 +121,24 @@ func applyEnvironmentVariables(config *Config) {
 	if webhookURL := os.Getenv("WEBHOOK_URL"); webhookURL != "" {
 		config.Webhook.URL = webhookURL
 	}
+	if v := os.Getenv("WEBHOOK_RETRY_ENABLED"); v == "false" || v == "0" {
+		config.Webhook.RetryEnabled = false
+	} else if v == "true" || v == "1" {
+		config.Webhook.RetryEnabled = true
+	}
+	if v := os.Getenv("WEBHOOK_RETRY_INTERVAL_MINUTES"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 1 {
+			config.Webhook.RetryIntervalMinutes = n
+		}
+	}
+	if v := os.Getenv("WEBHOOK_MAX_RETRIES"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			config.Webhook.MaxRetries = n
+		}
+	}
+	if v := os.Getenv("WEBHOOK_PENDING_DIR"); v != "" {
+		config.Webhook.PendingDir = v
+	}
 }
 
 // setDefaults sets default values for optional configuration fields
@@ -146,6 +168,17 @@ func setDefaults(config *Config) {
 	}
 	if config.Server.TimeoutSeconds == 0 {
 		config.Server.TimeoutSeconds = 30
+	}
+
+	// Webhook retry defaults (set retry_enabled: true in yaml or WEBHOOK_RETRY_ENABLED=true to enable)
+	if config.Webhook.RetryIntervalMinutes == 0 {
+		config.Webhook.RetryIntervalMinutes = 5
+	}
+	if config.Webhook.MaxRetries == 0 {
+		config.Webhook.MaxRetries = 5
+	}
+	if config.Webhook.PendingDir == "" {
+		config.Webhook.PendingDir = "data/webhook_pending"
 	}
 }
 
@@ -188,6 +221,15 @@ func Validate(config *Config) error {
 		}
 		if preset.Height <= 0 {
 			return fmt.Errorf("resize.presets.%s.height must be positive, got: %d", name, preset.Height)
+		}
+	}
+
+	if config.Webhook.RetryEnabled {
+		if config.Webhook.RetryIntervalMinutes < 1 {
+			return fmt.Errorf("webhook.retry_interval_minutes must be at least 1, got: %d", config.Webhook.RetryIntervalMinutes)
+		}
+		if config.Webhook.MaxRetries < 0 {
+			return fmt.Errorf("webhook.max_retries must be non-negative, got: %d", config.Webhook.MaxRetries)
 		}
 	}
 

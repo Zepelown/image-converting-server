@@ -179,13 +179,19 @@ func (j *Job) ProcessImages() {
 		processedCount, failedCount, time.Since(startTime))
 
 	if j.cfg.Webhook.URL != "" {
-		if err := webhook.SendBulk(ctx, j.cfg.Webhook.URL, &webhook.BatchPayload{
+		payload := &webhook.BatchPayload{
 			Event:          "batch.completed",
 			ProcessedCount: processedCount,
 			FailedCount:    failedCount,
 			Images:         converted,
-		}, 10*time.Second); err != nil {
+		}
+		if err := webhook.SendBulk(ctx, j.cfg.Webhook.URL, payload, 10*time.Second); err != nil {
 			log.Printf("[WARN] Webhook send failed (batch completed successfully): %v", err)
+			if j.cfg.Webhook.RetryEnabled {
+				if storeErr := webhook.StorePending(j.cfg.Webhook.PendingDir, j.cfg.Webhook.URL, payload); storeErr != nil {
+					log.Printf("[ERROR] Webhook: failed to store pending for retry: %v", storeErr)
+				}
+			}
 		}
 	}
 }

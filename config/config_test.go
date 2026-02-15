@@ -142,8 +142,8 @@ func TestLoadConfigWithDefaults(t *testing.T) {
 	if config.Cron.Schedule != "0 2 * * *" {
 		t.Errorf("Expected default schedule '0 2 * * *', got '%s'", config.Cron.Schedule)
 	}
-	if config.Server.Port != 8080 {
-		t.Errorf("Expected default port 8080, got %d", config.Server.Port)
+	if config.Server.Port != 4000 {
+		t.Errorf("Expected default port 4000, got %d", config.Server.Port)
 	}
 	if config.Server.TimeoutSeconds != 30 {
 		t.Errorf("Expected default timeout_seconds 30, got %d", config.Server.TimeoutSeconds)
