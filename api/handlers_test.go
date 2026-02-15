@@ -7,6 +7,7 @@ import (
 	"image"
 	"image/color"
 	"image/png"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -14,6 +15,7 @@ import (
 
 	"image-converting-server/config"
 	"image-converting-server/processor"
+	"image-converting-server/webhook"
 )
 
 // mockStorageClient is a mock implementation of the r2.StorageClient interface
@@ -254,5 +256,123 @@ func TestHandleConvert_URL(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected status %d, got %d, body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+}
+
+func TestHandleTriggerWebhook_NotConfigured(t *testing.T) {
+	cfg := &config.Config{
+		Webhook: config.WebhookConfig{URL: ""},
+	}
+	h := NewHandler(nil, nil, cfg)
+
+	body, _ := json.Marshal(TriggerWebhookRequest{
+		Images: []webhook.ImageEntry{
+			{Source: "a.jpg", Destination: "a.webp"},
+		},
+	})
+	req := httptest.NewRequest("POST", "/api/webhook/send", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.HandleTriggerWebhook(w, req)
+
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("expected status %d, got %d", http.StatusServiceUnavailable, w.Code)
+	}
+	var resp ErrorResponse
+	json.NewDecoder(w.Body).Decode(&resp)
+	if resp.Error != "webhook_not_configured" {
+		t.Errorf("expected error webhook_not_configured, got %s", resp.Error)
+	}
+}
+
+func TestHandleTriggerWebhook_MethodNotAllowed(t *testing.T) {
+	cfg := &config.Config{Webhook: config.WebhookConfig{URL: "https://example.com/hook"}}
+	h := NewHandler(nil, nil, cfg)
+
+	req := httptest.NewRequest("GET", "/api/webhook/send", nil)
+	w := httptest.NewRecorder()
+
+	h.HandleTriggerWebhook(w, req)
+
+	if w.Code != http.StatusMethodNotAllowed {
+		t.Errorf("expected status %d, got %d", http.StatusMethodNotAllowed, w.Code)
+	}
+}
+
+func TestHandleTriggerWebhook_EmptyImages(t *testing.T) {
+	cfg := &config.Config{Webhook: config.WebhookConfig{URL: "https://example.com/hook"}}
+	h := NewHandler(nil, nil, cfg)
+
+	body, _ := json.Marshal(TriggerWebhookRequest{Images: []webhook.ImageEntry{}})
+	req := httptest.NewRequest("POST", "/api/webhook/send", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.HandleTriggerWebhook(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d", http.StatusBadRequest, w.Code)
+	}
+	var resp ErrorResponse
+	json.NewDecoder(w.Body).Decode(&resp)
+	if resp.Error != "empty_images" {
+		t.Errorf("expected error empty_images, got %s", resp.Error)
+	}
+}
+
+func TestHandleTriggerWebhook_Success(t *testing.T) {
+	received := make(chan []byte, 1)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		received <- body
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	cfg := &config.Config{Webhook: config.WebhookConfig{URL: server.URL}}
+	h := NewHandler(nil, nil, cfg)
+
+	reqBody := TriggerWebhookRequest{
+		Images: []webhook.ImageEntry{
+			{Source: "uploads/a.jpg", Destination: "uploads/a.webp"},
+		},
+	}
+	body, _ := json.Marshal(reqBody)
+	req := httptest.NewRequest("POST", "/api/webhook/send", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	h.HandleTriggerWebhook(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d, body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+
+	select {
+	case data := <-received:
+		var payload struct {
+			Event          string `json:"event"`
+			ProcessedCount int    `json:"processed_count"`
+			FailedCount    int    `json:"failed_count"`
+			Images         []struct {
+				Source      string `json:"source"`
+				Destination string `json:"destination"`
+			} `json:"images"`
+		}
+		if err := json.Unmarshal(data, &payload); err != nil {
+			t.Fatalf("unmarshal webhook body: %v", err)
+		}
+		if payload.Event != "manual.triggered" {
+			t.Errorf("expected event manual.triggered, got %s", payload.Event)
+		}
+		if payload.ProcessedCount != 1 || payload.FailedCount != 0 {
+			t.Errorf("expected processed_count=1 failed_count=0, got %d %d", payload.ProcessedCount, payload.FailedCount)
+		}
+		if len(payload.Images) != 1 || payload.Images[0].Source != "uploads/a.jpg" || payload.Images[0].Destination != "uploads/a.webp" {
+			t.Errorf("unexpected images: %+v", payload.Images)
+		}
+	default:
+		t.Error("webhook server did not receive request")
 	}
 }

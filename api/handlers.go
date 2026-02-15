@@ -10,10 +10,12 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"image-converting-server/config"
 	"image-converting-server/processor"
 	"image-converting-server/r2"
+	"image-converting-server/webhook"
 )
 
 // ConvertRequest represents the JSON body for POST /api/convert
@@ -38,6 +40,11 @@ type ErrorResponse struct {
 	Success bool   `json:"success"`
 	Error   string `json:"error"`
 	Message string `json:"message"`
+}
+
+// TriggerWebhookRequest is the JSON body for POST /api/webhook/send
+type TriggerWebhookRequest struct {
+	Images []webhook.ImageEntry `json:"images"`
 }
 
 // Handler holds dependencies for HTTP handlers
@@ -227,6 +234,54 @@ func (h *Handler) HandleConvert(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.sendJSON(w, http.StatusOK, res)
+}
+
+// HandleTriggerWebhook handles POST /api/webhook/send to trigger the webhook on demand.
+func (h *Handler) HandleTriggerWebhook(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST")
+		h.sendError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
+		return
+	}
+
+	if h.config.Webhook.URL == "" {
+		h.sendError(w, http.StatusServiceUnavailable, "webhook_not_configured", "Webhook URL is not configured")
+		return
+	}
+
+	var req TriggerWebhookRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.sendError(w, http.StatusBadRequest, "invalid_request", "Failed to parse JSON body")
+		return
+	}
+
+	if len(req.Images) == 0 {
+		h.sendError(w, http.StatusBadRequest, "empty_images", "images must not be empty")
+		return
+	}
+
+	payload := &webhook.BatchPayload{
+		Event:          "manual.triggered",
+		ProcessedCount: len(req.Images),
+		FailedCount:    0,
+		Images:         req.Images,
+	}
+
+	err := webhook.SendBulk(r.Context(), h.config.Webhook.URL, payload, 10*time.Second)
+	if err != nil {
+		if h.config.Webhook.RetryEnabled {
+			if storeErr := webhook.StorePending(h.config.Webhook.PendingDir, h.config.Webhook.URL, payload); storeErr != nil {
+				log.Printf("[WARN] Webhook: failed to store pending for retry: %v", storeErr)
+			}
+		}
+		h.sendError(w, http.StatusBadGateway, "webhook_delivery_failed", "Webhook delivery failed")
+		return
+	}
+
+	h.sendJSON(w, http.StatusOK, map[string]interface{}{
+		"success": true,
+		"message": "Webhook sent",
+	})
 }
 
 func (h *Handler) downloadFromURL(urlStr string) ([]byte, error) {

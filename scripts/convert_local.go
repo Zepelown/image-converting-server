@@ -1,3 +1,5 @@
+//go:build convert_local
+
 package main
 
 import (

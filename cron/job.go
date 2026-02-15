@@ -13,6 +13,7 @@ import (
 	"image-converting-server/processor"
 	"image-converting-server/r2"
 	"image-converting-server/state"
+	"image-converting-server/webhook"
 
 	"github.com/robfig/cron/v3"
 )
@@ -99,6 +100,7 @@ func (j *Job) ProcessImages() {
 
 	processedCount := 0
 	failedCount := 0
+	var converted []webhook.ImageEntry
 
 	// 4. Process each image
 	for _, key := range keys {
@@ -141,6 +143,7 @@ func (j *Job) ProcessImages() {
 
 		log.Printf("[INFO] Successfully converted %s to %s", key, destKey)
 		processedCount++
+		converted = append(converted, webhook.ImageEntry{Source: key, Destination: destKey})
 
 		// Delete original image
 		/*
@@ -174,6 +177,23 @@ func (j *Job) ProcessImages() {
 
 	log.Printf("[INFO] Cron job execution completed. Processed: %d, Failed: %d, Duration: %v",
 		processedCount, failedCount, time.Since(startTime))
+
+	if j.cfg.Webhook.URL != "" {
+		payload := &webhook.BatchPayload{
+			Event:          "batch.completed",
+			ProcessedCount: processedCount,
+			FailedCount:    failedCount,
+			Images:         converted,
+		}
+		if err := webhook.SendBulk(ctx, j.cfg.Webhook.URL, payload, 10*time.Second); err != nil {
+			log.Printf("[WARN] Webhook send failed (batch completed successfully): %v", err)
+			if j.cfg.Webhook.RetryEnabled {
+				if storeErr := webhook.StorePending(j.cfg.Webhook.PendingDir, j.cfg.Webhook.URL, payload); storeErr != nil {
+					log.Printf("[ERROR] Webhook: failed to store pending for retry: %v", storeErr)
+				}
+			}
+		}
+	}
 }
 
 func (j *Job) isSupportedExtension(key string) bool {

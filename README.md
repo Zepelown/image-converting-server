@@ -9,6 +9,7 @@ A high-performance image processing service built with Go, designed for seamless
 - **On-the-fly Resizing**: Resize images dynamically using HTTP query parameters or predefined presets (e.g., thumbnail, medium, large).
 - **Scheduled Cron Jobs**: Periodically scans your R2 bucket for new images and converts them automatically to keep your storage optimized.
 - **State Management**: Tracks processing status to ensure efficient incremental updates without reprocessing existing images.
+- **Webhooks**: Notifies your endpoint when a cron batch completes, with optional retry for failed deliveries.
 
 ## Getting Started
 
@@ -60,10 +61,92 @@ Main settings live in `config/config.yaml`:
 
 Cron uses standard cron expression **(minute hour day month weekday)** in **server local time**. Default `"0 12 * * *"` runs at **UTC 12:00** (noon UTC). On a UTC server that equals **21:00 KST**. Adjust the hour if your server uses a different timezone. See [docs/CRON.md](docs/CRON.md) for details.
 
+### Webhook (batch completion notification)
+
+When a **cron** batch run finishes, the server can send a **POST** request to a URL you configure. This is useful for logging, monitoring, or triggering downstream workflows (e.g. cache invalidation, CDN purge).
+
+#### When it is sent
+
+- **Only after the scheduled cron job** completes (not on one-off API conversions).
+- Sent only if `WEBHOOK_URL` is set. If the URL is empty, no request is made.
+
+#### Request details
+
+| Item | Value |
+|------|--------|
+| **Method** | `POST` |
+| **Content-Type** | `application/json` |
+| **Timeout** | 10 seconds |
+
+#### Request body (JSON)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `event` | string | Always `"batch.completed"` for cron batch completion. |
+| `processed_count` | number | Number of images successfully converted in this run. |
+| `failed_count` | number | Number of images that failed (download, convert, or upload). |
+| `images` | array | List of converted images in this run. |
+| `images[].source` | string | Original object key (e.g. `path/to/image.jpg`). |
+| `images[].destination` | string | New object key after conversion (e.g. `path/to/image.webp`). |
+
+**Example body:**
+
+```json
+{
+  "event": "batch.completed",
+  "processed_count": 3,
+  "failed_count": 0,
+  "images": [
+    { "source": "uploads/photo.jpg", "destination": "uploads/photo.webp" },
+    { "source": "assets/logo.png", "destination": "assets/logo.webp" },
+    { "source": "gallery/1.gif", "destination": "gallery/1.webp" }
+  ]
+}
+```
+
+If no images were converted in the run, `images` is an empty array and counts may be zero.
+
+#### Configuration
+
+Set the webhook URL (and optional retry settings) via environment variables (or `config/config.yaml` under `webhook`):
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `WEBHOOK_URL` | Full URL to receive the POST (e.g. `https://your-server.com/webhook/conversion-batch`). | (none) |
+| `WEBHOOK_RETRY_ENABLED` | If `true`, failed deliveries are stored and retried. | `false` |
+| `WEBHOOK_RETRY_INTERVAL_MINUTES` | Minutes between retry passes. | `5` |
+| `WEBHOOK_MAX_RETRIES` | Max retries per failed payload; then the pending file is removed (or moved to dead letter if configured). | `5` |
+| `WEBHOOK_PENDING_DIR` | Directory for storing failed webhook payloads for retry. | `data/webhook_pending` |
+
+**Receiver expectations:** Your endpoint should respond with an HTTP status in the **2xx** range. Any other status (or timeout/connection error) is treated as failure. If retry is enabled, the payload is written under `WEBHOOK_PENDING_DIR` and retried periodically until success or `WEBHOOK_MAX_RETRIES` is reached.
+
+#### Manual webhook trigger (POST /api/webhook/send)
+
+Admins can trigger the same webhook on demand (e.g. for testing or to notify about specific images) without waiting for a cron batch.
+
+- **Method:** `POST`
+- **URL:** `/api/webhook/send`
+- **Request body (JSON):**
+
+  | Field   | Type  | Description                                        |
+  |---------|-------|----------------------------------------------------|
+  | `images` | array | List of image entries (source and destination keys). Must not be empty. |
+  | `images[].source`      | string | Original object key (e.g. `uploads/a.jpg`).       |
+  | `images[].destination`| string | Converted object key (e.g. `uploads/a.webp`).     |
+
+  Example:
+  ```json
+  { "images": [ { "source": "uploads/a.jpg", "destination": "uploads/a.webp" } ] }
+  ```
+
+- **Response:** Same webhook payload shape is POSTed to `WEBHOOK_URL` with `event: "manual.triggered"` (so receivers can distinguish from `batch.completed`).
+- **Status codes:** `200` success; `400` invalid/empty body; `502` webhook delivery failed; `503` webhook URL not configured.
+
 ### Endpoints
 
 - `GET /` - Main endpoint
 - `GET /health` - Health check endpoint
+- `POST /api/webhook/send` - Trigger webhook manually (see Webhook section above)
 
 ### Documentation
 
