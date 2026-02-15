@@ -52,6 +52,7 @@ func TestProcessImages(t *testing.T) {
 			Enabled:  true,
 			Schedule: "0 0 * * *",
 		},
+		Webhook: config.WebhookConfig{URL: ""}, // no webhook in tests
 	}
 
 	// 3. Setup Processor
@@ -109,7 +110,8 @@ func TestLocking(t *testing.T) {
 	statePath := filepath.Join(tempDir, "state.json")
 
 	cfg := &config.Config{
-		Cron: config.CronConfig{Enabled: true},
+		Cron:    config.CronConfig{Enabled: true},
+		Webhook: config.WebhookConfig{URL: ""},
 	}
 	job := NewJob(cfg, nil, nil, statePath)
 

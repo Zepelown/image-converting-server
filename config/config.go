@@ -16,6 +16,12 @@ type Config struct {
 	Resize     ResizeConfig     `yaml:"resize"`
 	Cron       CronConfig       `yaml:"cron"`
 	Server     ServerConfig     `yaml:"server"`
+	Webhook    WebhookConfig    `yaml:"webhook"`
+}
+
+// WebhookConfig contains webhook settings (URL is typically set via WEBHOOK_URL env only)
+type WebhookConfig struct {
+	URL string `yaml:"url"`
 }
 
 // R2Config contains Cloudflare R2 connection settings
@@ -107,6 +113,9 @@ func applyEnvironmentVariables(config *Config) {
 		if port, err := strconv.Atoi(portStr); err == nil {
 			config.Server.Port = port
 		}
+	}
+	if webhookURL := os.Getenv("WEBHOOK_URL"); webhookURL != "" {
+		config.Webhook.URL = webhookURL
 	}
 }
 
