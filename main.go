@@ -73,6 +73,7 @@ func main() {
 	mux.HandleFunc("/", handler.HandleIndex)
 	mux.HandleFunc("/health", handler.HandleHealth)
 	mux.HandleFunc("/api/convert", handler.HandleConvert)
+	mux.HandleFunc("/api/webhook/send", handler.HandleTriggerWebhook)
 
 	// 6. Start HTTP Server
 	port := fmt.Sprintf(":%d", cfg.Server.Port)

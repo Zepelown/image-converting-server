@@ -120,10 +120,33 @@ Set the webhook URL (and optional retry settings) via environment variables (or 
 
 **Receiver expectations:** Your endpoint should respond with an HTTP status in the **2xx** range. Any other status (or timeout/connection error) is treated as failure. If retry is enabled, the payload is written under `WEBHOOK_PENDING_DIR` and retried periodically until success or `WEBHOOK_MAX_RETRIES` is reached.
 
+#### Manual webhook trigger (POST /api/webhook/send)
+
+Admins can trigger the same webhook on demand (e.g. for testing or to notify about specific images) without waiting for a cron batch.
+
+- **Method:** `POST`
+- **URL:** `/api/webhook/send`
+- **Request body (JSON):**
+
+  | Field   | Type  | Description                                        |
+  |---------|-------|----------------------------------------------------|
+  | `images` | array | List of image entries (source and destination keys). Must not be empty. |
+  | `images[].source`      | string | Original object key (e.g. `uploads/a.jpg`).       |
+  | `images[].destination`| string | Converted object key (e.g. `uploads/a.webp`).     |
+
+  Example:
+  ```json
+  { "images": [ { "source": "uploads/a.jpg", "destination": "uploads/a.webp" } ] }
+  ```
+
+- **Response:** Same webhook payload shape is POSTed to `WEBHOOK_URL` with `event: "manual.triggered"` (so receivers can distinguish from `batch.completed`).
+- **Status codes:** `200` success; `400` invalid/empty body; `502` webhook delivery failed; `503` webhook URL not configured.
+
 ### Endpoints
 
 - `GET /` - Main endpoint
 - `GET /health` - Health check endpoint
+- `POST /api/webhook/send` - Trigger webhook manually (see Webhook section above)
 
 ### Documentation
 
