@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"time"
@@ -41,7 +42,21 @@ func SendBulk(ctx context.Context, url string, payload *BatchPayload, timeout ti
 		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{Timeout: timeout}
+	// Preserve POST method and body on redirect (301/302 normally change to GET in stdlib).
+	client := &http.Client{
+		Timeout: timeout,
+		CheckRedirect: func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 10 {
+				return fmt.Errorf("too many redirects")
+			}
+			// Keep POST and body on redirect (default 301/302 would switch to GET).
+			req.Method = http.MethodPost
+			req.Body = io.NopCloser(bytes.NewReader(body))
+			req.GetBody = func() (io.ReadCloser, error) { return io.NopCloser(bytes.NewReader(body)), nil }
+			req.ContentLength = int64(len(body))
+			return nil
+		},
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		log.Printf("[ERROR] Webhook: POST failed: %v", err)
