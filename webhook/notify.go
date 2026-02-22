@@ -11,6 +11,8 @@ import (
 	"time"
 )
 
+const maxResponseBodyLogLen = 4096
+
 // ImageEntry represents one converted image path (source and destination).
 type ImageEntry struct {
 	Source      string `json:"source"`
@@ -63,18 +65,25 @@ func SendBulk(ctx context.Context, url string, payload *BatchPayload, timeout ti
 		},
 		Transport: &logTransport{next: http.DefaultTransport},
 	}
-	log.Printf("[INFO] Webhook: sending POST to %s", req.URL.String())
+	log.Printf("[INFO] Webhook: sending POST to %s (body size: %d bytes, images: %d)",
+		req.URL.String(), len(body), len(payload.Images))
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("[ERROR] Webhook: POST failed: %v", err)
+		log.Printf("[ERROR] Webhook: POST failed (no response): %v", err)
 		return err
 	}
 	defer resp.Body.Close()
+	log.Printf("[INFO] Webhook: response received, status=%d", resp.StatusCode)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, maxResponseBodyLogLen))
 		err := fmt.Errorf("webhook returned status %d", resp.StatusCode)
 		log.Printf("[ERROR] Webhook: %v for %s (response Location: %v)", err, url, resp.Header.Get("Location"))
+		if len(respBody) > 0 {
+			log.Printf("[ERROR] Webhook: response body: %s", string(respBody))
+		}
 		return err
 	}
+	log.Printf("[INFO] Webhook: delivered successfully, status=%d", resp.StatusCode)
 	return nil
 }
 

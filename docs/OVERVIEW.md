@@ -26,7 +26,7 @@ Image Converting Server는 Cloudflare R2에 저장된 이미지를 WebP 형식�
 - **언어**: Go 1.21+
 - **스토리지**: Cloudflare R2 (S3 호환 API)
 - **이미지 처리**: 
-  - WebP 변환: `github.com/chai2010/webp` 또는 `github.com/tidbyt/go-libwebp`
+  - WebP 변환: `github.com/skrashevich/go-libwebp` (CGO 불필요, Windows에서 GCC 없이 빌드 가능)
   - 리사이징: `github.com/disintegration/imaging`
 - **스케줄링**: `github.com/robfig/cron/v3`
 - **설정 관리**: YAML 파일 (`gopkg.in/yaml.v3`)
