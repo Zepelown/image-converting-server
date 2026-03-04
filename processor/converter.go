@@ -13,8 +13,8 @@ import (
 
 	"image-converting-server/config"
 
-	"github.com/chai2010/webp"
 	"github.com/disintegration/imaging"
+	"github.com/skrashevich/go-libwebp/webp"
 )
 
 // Processor handles image conversion and resizing
@@ -61,13 +61,18 @@ func (p *Processor) Process(data []byte, options ProcessOptions) ([]byte, string
 	return webpData, format, nil
 }
 
-// ConvertToWebP encodes an image to WebP format
+// ConvertToWebP encodes an image to WebP format (CGO-free, works on Windows without GCC).
 func (p *Processor) ConvertToWebP(img image.Image) ([]byte, error) {
 	var buf bytes.Buffer
-	err := webp.Encode(&buf, img, &webp.Options{
-		Lossless: false,
-		Quality:  float32(p.cfg.Conversion.Quality),
-	})
+	// Quality is 0-100 in config; go-libwebp expects (0, 1]
+	q := float32(p.cfg.Conversion.Quality) / 100
+	if q <= 0 {
+		q = 0.9
+	}
+	if q > 1 {
+		q = 1
+	}
+	err := webp.Encode(&buf, img, webp.Quality(q))
 	if err != nil {
 		return nil, err
 	}
