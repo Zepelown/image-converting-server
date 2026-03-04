@@ -1,0 +1,22 @@
+---
+description: All code comments must be written in English.
+alwaysApply: false
+---
+# Comments in English
+
+All comments in source code must be written in **English**.
+
+- Use English for: package comments, function/method comments, inline comments, and TODO/FIXME notes.
+- Keep comments clear and concise.
+
+```go
+// Good: package-level and inline in English
+// SendBulk POSTs the payload to the given URL as JSON.
+if url == "" {
+	return nil // no webhook configured
+}
+
+// Bad: non-English comments
+// 웹훅 URL로 페이로드를 전송합니다.
+return nil // 웹훅 미설정
+```

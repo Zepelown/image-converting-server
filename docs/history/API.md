@@ -177,6 +177,73 @@ Host: localhost:8080
 
 ---
 
+### 4. 웹훅 수동 발송
+
+#### `POST /api/webhook/send`
+
+배치 작업 완료 없이, 지정한 이미지 경로 목록으로 웹훅을 즉시 발송합니다. 어드민이 테스트하거나 특정 이미지에 대해 알림을 보낼 때 사용합니다.
+
+**요청**:
+
+**헤더**:
+```http
+POST /api/webhook/send HTTP/1.1
+Host: localhost:8080
+Content-Type: application/json
+```
+
+**본문** (JSON):
+```json
+{
+  "images": [
+    { "source": "uploads/a.jpg", "destination": "uploads/a.webp" },
+    { "source": "assets/logo.png", "destination": "assets/logo.webp" }
+  ]
+}
+```
+
+- `images` (필수): 배열이며 최소 1개 이상의 항목이 있어야 합니다.
+- 각 항목: `source`(원본 객체 키), `destination`(변환 후 객체 키).
+
+**응답** (200 OK):
+```json
+{
+  "success": true,
+  "message": "Webhook sent"
+}
+```
+
+**에러 응답** (400 Bad Request) — 본문 파싱 실패 또는 images 비어 있음:
+```json
+{
+  "success": false,
+  "error": "empty_images",
+  "message": "images must not be empty"
+}
+```
+
+**에러 응답** (502 Bad Gateway) — 웹훅 전송 실패:
+```json
+{
+  "success": false,
+  "error": "webhook_delivery_failed",
+  "message": "Webhook delivery failed"
+}
+```
+
+**에러 응답** (503 Service Unavailable) — 웹훅 URL 미설정:
+```json
+{
+  "success": false,
+  "error": "webhook_not_configured",
+  "message": "Webhook URL is not configured"
+}
+```
+
+**참고:** 실제로 웹훅 수신 URL(`WEBHOOK_URL`)로 전송되는 페이로드는 배치 완료와 동일한 형식이며, `event` 값만 `"manual.triggered"`로 설정됩니다. 수신측에서 이 값을 보고 수동 호출인지 배치 완료인지 구분할 수 있습니다.
+
+---
+
 ## 요청/응답 스키마
 
 ### 변환 요청 (POST 본문)
@@ -231,6 +298,8 @@ Host: localhost:8080
 | 500 | `conversion_failed` | 이미지 변환 실패 |
 | 500 | `upload_failed` | R2 업로드 실패 |
 | 500 | `internal_error` | 내부 서버 오류 |
+| 502 | `webhook_delivery_failed` | 웹훅 전송 실패 (POST /api/webhook/send) |
+| 503 | `webhook_not_configured` | 웹훅 URL 미설정 (POST /api/webhook/send) |
 
 ---
 

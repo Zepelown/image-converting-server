@@ -1,0 +1,13 @@
+---
+description: This service targets global users; consider i18n, timezone, and locale.
+alwaysApply: true
+---
+
+# Global User Service
+
+This codebase serves **global users**. When adding or changing behavior:
+
+- **User-facing text**: Prefer English as the default; avoid hardcoded locale-specific strings in code. Keep API error messages and log messages in English unless they are explicitly localized.
+- **Time and dates**: Use UTC for storage and API contracts; convert to local time only when displaying to users. Document timezone assumptions in config and APIs.
+- **Config and env**: Design so the same binary can run in any region; use env/config for region-specific endpoints (e.g., webhook URLs, R2 buckets) rather than hardcoding.
+- **Errors and logs**: Use clear, consistent English so support and debugging work across teams and regions.
