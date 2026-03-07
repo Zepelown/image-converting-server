@@ -4,7 +4,7 @@
 현재 구현 기준 스펙을 정리합니다.
 
 기준 구현 파일:
-- 설정: `config/config.go`, `config/config.yaml`, `.env` 관련
+- 설정: `config/load_env.go`, `config/types.go`, `config/defaults.go`, `config/validate.go`, `.env`
 - 스토리지: `r2/client.go`
 - 상태: `state/state.go`
 
@@ -12,23 +12,22 @@
 
 ### 1. 설정 로딩 및 구조
 
-#### 1.1 설정 파일 및 .env 처리
+#### 1.1 설정 로딩 (.env 단일 소스)
 
-- 진입점: `config.Load("config/config.yaml")`
+- 진입점: `config.LoadFromEnv()`
 - 처리 순서:
   1. `.env` 파일 로딩 시도
      - `godotenv.Load()` 호출.
      - 파일이 없어도 에러를 무시하고 계속 진행.
-  2. `config/config.yaml` 파일 읽기
-     - 실패 시: `failed to read config file` 에러 반환.
-  3. YAML 파싱 → `Config` 구조체로 언마샬.
-     - 실패 시: `failed to parse config file` 에러 반환.
-  4. `applyEnvironmentVariables` 호출
-     - 특정 필드는 환경 변수로 YAML 값을 덮어씀.
-  5. `setDefaults` 호출
-     - 선택 필드에 대해 기본값 설정.
-  6. `Validate` 호출
-     - 필수 값 및 제약 조건 검증.
+  2. 환경 변수에서 `Config` 채우기
+     - `loadR2FromEnv`, `loadConversionFromEnv`, `loadResizeFromEnv`, `loadCronFromEnv`, `loadServerFromEnv`, `loadWebhookFromEnv` 순서로 호출.
+     - 각 함수는 해당하는 env 키를 읽어 구조체에 반영.
+  3. `setDefaults` 호출
+     - 선택 필드가 비어 있으면 기본값 설정.
+  4. `Validate` 호출
+     - 필수 값 및 제약 조건 검증. 실패 시 에러 반환.
+
+설정은 **YAML 파일 없이** `.env`(및 시스템 환경 변수)만 사용합니다.
 
 #### 1.2 Config 구조체
 
@@ -168,28 +167,35 @@ webhook:
 
 ---
 
-### 2. 환경 변수 오버라이드 규칙
+### 2. 환경 변수 (설정의 유일한 소스)
 
-`applyEnvironmentVariables` 단계에서 다음 환경 변수들이 YAML 값을 덮어씁니다.
+설정은 환경 변수만으로 로드됩니다. `.env` 파일에 키를 두면 `godotenv.Load()`로 읽힙니다.
 
-- `R2_ACCESS_KEY` → `config.R2.AccessKey`
-- `R2_SECRET_KEY` → `config.R2.SecretKey`
-- `R2_ENDPOINT` → `config.R2.Endpoint`
-- `R2_BUCKET` → `config.R2.Bucket`
-- `SERVER_PORT` → `config.Server.Port`
-  - 정수 파싱 성공 시에만 반영.
-- `WEBHOOK_URL` → `config.Webhook.URL`
-- `WEBHOOK_RETRY_ENABLED`
-  - `"false"` 또는 `"0"` → `RetryEnabled = false`
-  - `"true"` 또는 `"1"` → `RetryEnabled = true`
-- `WEBHOOK_RETRY_INTERVAL_MINUTES`
-  - 정수 파싱 성공 & `>=1`이면 `RetryIntervalMinutes` 덮어씀.
-- `WEBHOOK_MAX_RETRIES`
-  - 정수 파싱 성공 & `>=0`이면 `MaxRetries` 덮어씀.
-- `WEBHOOK_PENDING_DIR`
-  - 비어 있지 않은 경우 `PendingDir` 덮어씀.
+#### 지원 환경 변수 목록
 
-주의: 환경 변수는 YAML보다 **우선** 적용됩니다.
+- **R2** (필수)
+  - `R2_ACCESS_KEY` → `config.R2.AccessKey`
+  - `R2_SECRET_KEY` → `config.R2.SecretKey`
+  - `R2_ENDPOINT` → `config.R2.Endpoint`
+  - `R2_BUCKET` → `config.R2.Bucket`
+- **서버**
+  - `SERVER_PORT` → `config.Server.Port` (정수 파싱 성공 시에만 반영, 기본값 4000)
+  - `SERVER_TIMEOUT_SECONDS` → `config.Server.TimeoutSeconds` (정수 파싱 성공 시에만 반영, 기본값 30)
+- **변환(Conversion)**
+  - `CONVERSION_FORMATS` → 쉼표 구분 문자열을 `config.Conversion.Formats` ([]string)로 파싱. 비어 있으면 기본값 `["jpeg","jpg","png","gif","bmp","tiff"]`
+  - `CONVERSION_QUALITY` → 정수 파싱 시 `config.Conversion.Quality` (기본값 85)
+  - `CONVERSION_MAX_SIZE_MB` → 정수 파싱 시 `config.Conversion.MaxSizeMB` (기본값 50)
+- **리사이즈 프리셋**
+  - `RESIZE_PRESETS` → `이름:폭x높이` 형식, 쉼표 구분 (예: `thumbnail:150x150,medium:800x800`). 파싱 성공한 항목만 `config.Resize.Presets`에 반영.
+- **크론**
+  - `CRON_SCHEDULE` → `config.Cron.Schedule` (비어 있으면 기본값 `"0 2 * * *"`)
+  - `CRON_ENABLED` → `"true"`/`"1"`이면 true, `"false"`/`"0"`이면 false.
+- **웹훅**
+  - `WEBHOOK_URL` → `config.Webhook.URL`
+  - `WEBHOOK_RETRY_ENABLED` → `"true"`/`"1"` → true, `"false"`/`"0"` → false
+  - `WEBHOOK_RETRY_INTERVAL_MINUTES` → 정수 파싱 성공 & `>=1`이면 `RetryIntervalMinutes` 반영 (기본값 5)
+  - `WEBHOOK_MAX_RETRIES` → 정수 파싱 성공 & `>=0`이면 `MaxRetries` 반영 (기본값 5)
+  - `WEBHOOK_PENDING_DIR` → 비어 있지 않으면 `PendingDir` (기본값 `"data/webhook_pending"`)
 
 ---
 
