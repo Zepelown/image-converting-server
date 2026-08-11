@@ -64,25 +64,29 @@ GOOS=linux GOARCH=amd64 go build -o image-converting-server
 
 ## 설정 파일 준비
 
-### 1. 설정 파일 생성
+설정은 **환경 변수**와 **.env** 파일로 합니다. `config/config.yaml`은 선택 사항이며, 없으면 .env만으로 기동됩니다.
+
+### 1. .env 파일 생성
 
 ```bash
-mkdir -p config
-cp config/config.yaml.example config/config.yaml
+cp .env.example .env
 ```
 
-또는 직접 생성:
-```bash
-mkdir -p config
-touch config/config.yaml
-```
+### 2. .env 파일 작성
 
-### 2. 설정 파일 작성
+`.env` 파일을 열고 R2 접속 정보 등 필요한 값을 입력합니다. 필수 항목:
 
-`config/config.yaml` 파일을 열고 R2 접속 정보를 입력합니다:
+- `R2_ACCESS_KEY`, `R2_SECRET_KEY`, `R2_ENDPOINT`
+- 단일 버킷: `R2_BUCKET`
+- 여러 버킷: `R2_BUCKETS=bucket-a,bucket-b`
+
+나머지(서버 포트, 변환 품질, 크론 스케줄 등)는 `.env.example` 주석을 참고해 선택적으로 설정합니다.
+
+**선택: YAML 사용 시**
+`config/config.yaml`이 있으면 먼저 로드되고, 환경 변수가 그 값을 덮어씁니다. 예시:
 
 ```yaml
-# Note: R2 접속 정보는 보안을 위해 환경 변수(.env)로 제공해야 합니다.
+# Note: R2 접속 정보는 .env로 제공하는 것을 권장합니다.
 
 conversion:
   formats: ["jpeg", "jpg", "png", "gif", "bmp", "tiff"]
@@ -112,18 +116,6 @@ server:
 
 **보안 권장사항**: 민감한 정보는 환경 변수로 관리하세요. 자세한 내용은 [CONFIG.md](./CONFIG.md) 참조.
 
-### 3. 환경 변수 설정 (필수)
-
-R2 접속 정보는 반드시 환경 변수 또는 `.env` 파일로 제공해야 합니다:
-
-```bash
-# .env 파일 예시
-R2_ACCESS_KEY="your-access-key"
-R2_SECRET_KEY="your-secret-key"
-R2_ENDPOINT="https://your-account-id.r2.cloudflarestorage.com"
-R2_BUCKET="your-bucket-name"
-```
-
 ---
 
 ## 서버 실행
@@ -142,18 +134,6 @@ go build -o image-converting-server
 
 # 실행
 ./image-converting-server
-```
-
-### 커스텀 설정 파일 경로 지정
-
-```bash
-go run main.go -config /path/to/custom-config.yaml
-```
-
-또는:
-
-```bash
-./image-converting-server -config /path/to/custom-config.yaml
 ```
 
 ### 백그라운드 실행 (Linux/macOS)

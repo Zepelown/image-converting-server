@@ -49,17 +49,33 @@ type TriggerWebhookRequest struct {
 
 // Handler holds dependencies for HTTP handlers
 type Handler struct {
-	storageClient r2.StorageClient
-	processor     *processor.Processor
-	config        *config.Config
+	storageClient  r2.StorageClient
+	storageClients map[string]r2.StorageClient
+	processor      *processor.Processor
+	config         *config.Config
 }
 
 // NewHandler creates a new Handler instance
 func NewHandler(storageClient r2.StorageClient, processor *processor.Processor, config *config.Config) *Handler {
+	storageClients := make(map[string]r2.StorageClient)
+	if config != nil && config.R2.Bucket != "" {
+		storageClients[config.R2.Bucket] = storageClient
+	}
 	return &Handler{
-		storageClient: storageClient,
-		processor:     processor,
-		config:        config,
+		storageClient:  storageClient,
+		storageClients: storageClients,
+		processor:      processor,
+		config:         config,
+	}
+}
+
+// NewMultiBucketHandler creates a handler that can route R2 requests by bucket.
+func NewMultiBucketHandler(storageClients map[string]r2.StorageClient, processor *processor.Processor, config *config.Config) *Handler {
+	return &Handler{
+		storageClient:  storageClients[config.R2.Bucket],
+		storageClients: storageClients,
+		processor:      processor,
+		config:         config,
 	}
 }
 
@@ -134,6 +150,8 @@ func (h *Handler) HandleConvert(w http.ResponseWriter, r *http.Request) {
 	var data []byte
 	var err error
 	var r2Key string
+	targetBucket := h.config.R2.Bucket
+	targetClient := h.storageClient
 
 	if strings.HasPrefix(source, "r2://") {
 		// Format: r2://bucket/key
@@ -143,10 +161,14 @@ func (h *Handler) HandleConvert(w http.ResponseWriter, r *http.Request) {
 			h.sendError(w, http.StatusBadRequest, "invalid_source_format", "Invalid R2 source format. Expected r2://bucket/key")
 			return
 		}
-		// In this version, we ignore the bucket name and use the configured one
-		// but we keep the key part
+		targetBucket = parts[0]
 		r2Key = parts[1]
-		data, err = h.storageClient.DownloadImage(r.Context(), r2Key)
+		targetClient = h.storageClientForBucket(targetBucket)
+		if targetClient == nil {
+			h.sendError(w, http.StatusBadRequest, "unknown_bucket", fmt.Sprintf("R2 bucket '%s' is not configured", targetBucket))
+			return
+		}
+		data, err = targetClient.DownloadImage(r.Context(), r2Key)
 		if err != nil {
 			log.Printf("Failed to download from R2: %v", err)
 			h.sendError(w, http.StatusNotFound, "image_not_found", "Image not found in R2 bucket")
@@ -188,7 +210,7 @@ func (h *Handler) HandleConvert(w http.ResponseWriter, r *http.Request) {
 	ext := filepath.Ext(r2Key)
 	destKey := strings.TrimSuffix(r2Key, ext) + ".webp"
 
-	err = h.storageClient.UploadImage(r.Context(), destKey, webpData, "image/webp")
+	err = targetClient.UploadImage(r.Context(), destKey, webpData, "image/webp")
 	if err != nil {
 		log.Printf("Upload failed: %v", err)
 		h.sendError(w, http.StatusInternalServerError, "upload_failed", "Failed to upload converted image to R2")
@@ -213,7 +235,7 @@ func (h *Handler) HandleConvert(w http.ResponseWriter, r *http.Request) {
 		Success:       true,
 		Message:       "Image converted successfully",
 		Source:        source,
-		Destination:   fmt.Sprintf("r2://%s/%s", h.config.R2.Bucket, destKey),
+		Destination:   fmt.Sprintf("r2://%s/%s", targetBucket, destKey),
 		OriginalSize:  originalSize,
 		ConvertedSize: len(webpData),
 	}
@@ -296,6 +318,18 @@ func (h *Handler) downloadFromURL(urlStr string) ([]byte, error) {
 	}
 
 	return io.ReadAll(resp.Body)
+}
+
+func (h *Handler) storageClientForBucket(bucket string) r2.StorageClient {
+	if h.storageClients != nil {
+		if client, ok := h.storageClients[bucket]; ok {
+			return client
+		}
+	}
+	if bucket == h.config.R2.Bucket {
+		return h.storageClient
+	}
+	return nil
 }
 
 func (h *Handler) sendJSON(w http.ResponseWriter, status int, data interface{}) {

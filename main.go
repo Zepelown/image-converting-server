@@ -27,16 +27,22 @@ func main() {
 
 	// 2. Initialize R2 client
 	ctx := context.Background()
-	storageClient, err := r2.NewClient(ctx, &cfg.R2)
-	if err != nil {
-		log.Fatalf("[FATAL] Failed to initialize R2 client: %v", err)
-	}
+	r2Clients := make(map[string]r2.StorageClient, len(cfg.R2.Buckets))
+	for _, bucket := range cfg.R2.Buckets {
+		bucketCfg := cfg.R2
+		bucketCfg.Bucket = bucket
+		storageClient, err := r2.NewClient(ctx, &bucketCfg)
+		if err != nil {
+			log.Fatalf("[FATAL] Failed to initialize R2 client for bucket %s: %v", bucket, err)
+		}
 
-	// Test R2 connection
-	if err := storageClient.TestConnection(ctx); err != nil {
-		log.Printf("[WARN] R2 connection test failed: %v. Please check your credentials.", err)
-	} else {
-		log.Println("[INFO] Successfully connected to R2 bucket")
+		// Test R2 connection
+		if err := storageClient.TestConnection(ctx); err != nil {
+			log.Printf("[WARN] R2 connection test failed for bucket %s: %v. Please check your credentials.", bucket, err)
+		} else {
+			log.Printf("[INFO] Successfully connected to R2 bucket: %s", bucket)
+		}
+		r2Clients[bucket] = storageClient
 	}
 
 	// 3. Initialize Image Processor
@@ -44,7 +50,7 @@ func main() {
 
 	// 4. Initialize Cron Job
 	statePath := "data/state.json"
-	cronJob := cron.NewJob(cfg, storageClient, proc, statePath)
+	cronJob := cron.NewMultiBucketJob(cfg, r2Clients, proc, statePath)
 	if err := cronJob.Start(); err != nil {
 		log.Fatalf("[FATAL] Failed to start cron job: %v", err)
 	}
@@ -56,10 +62,10 @@ func main() {
 		retryCtx, cancel := context.WithCancel(context.Background())
 		retryWorkerCancel = cancel
 		go webhook.RunRetryWorker(retryCtx, webhook.RetryWorkerOptions{
-			PendingDir:   cfg.Webhook.PendingDir,
-			Interval:     time.Duration(cfg.Webhook.RetryIntervalMinutes) * time.Minute,
-			MaxRetries:   cfg.Webhook.MaxRetries,
-			SendTimeout:  10 * time.Second,
+			PendingDir:  cfg.Webhook.PendingDir,
+			Interval:    time.Duration(cfg.Webhook.RetryIntervalMinutes) * time.Minute,
+			MaxRetries:  cfg.Webhook.MaxRetries,
+			SendTimeout: 10 * time.Second,
 		})
 	}
 	if retryWorkerCancel != nil {
@@ -67,7 +73,7 @@ func main() {
 	}
 
 	// 5. Setup HTTP Router
-	handler := api.NewHandler(storageClient, proc, cfg)
+	handler := api.NewMultiBucketHandler(r2Clients, proc, cfg)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handler.HandleIndex)

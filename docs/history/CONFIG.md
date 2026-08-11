@@ -2,16 +2,14 @@
 
 Image Converting Server의 설정 파일 구조 및 각 설정 항목에 대한 상세 가이드입니다.
 
-## 설정 파일 위치
+## 설정 방식
 
-기본 설정 파일 경로: `config/config.yaml`
+설정은 **환경 변수**(및 `.env` 파일)로 합니다. `cp .env.example .env` 후 값을 채우면 됩니다. **YAML 없이 .env만으로 기동 가능**합니다.
 
-서버 실행 시 `-config` 플래그로 다른 경로를 지정할 수 있습니다:
-```bash
-go run main.go -config /path/to/custom-config.yaml
-```
+- **필수**: R2 접속 정보(`R2_ACCESS_KEY`, `R2_SECRET_KEY`, `R2_ENDPOINT`)와 버킷 설정(`R2_BUCKET` 또는 `R2_BUCKETS`)은 반드시 환경 변수 또는 `.env`에 설정해야 합니다.
+- **선택**: `config/config.yaml` 파일이 있으면 먼저 로드되고, 환경 변수가 그 값을 덮어씁니다. 파일이 없으면 환경 변수와 기본값만 사용합니다.
 
-## 설정 파일 구조
+## 설정 파일 구조 (YAML 선택 시)
 
 ### 전체 구조
 
@@ -67,31 +65,43 @@ Cloudflare R2 접속 정보는 보안을 위해 **환경 변수** 또는 **.env 
 - **설명**: Cloudflare R2 엔드포인트 URL
 - **형식**: `https://{account-id}.r2.cloudflarestorage.com`
 
-#### `R2_BUCKET` (필수)
+#### `R2_BUCKET` (필수, 단일 버킷 사용 시)
 - **설명**: 이미지가 저장된 R2 버킷 이름
 - **예시**: `"my-image-bucket"`
+
+#### `R2_BUCKETS` (필수, 여러 버킷 사용 시)
+- **설명**: 같은 R2 계정에서 순회할 버킷 이름 목록
+- **형식**: 쉼표 구분 문자열
+- **예시**: `R2_BUCKETS=images-a,images-b,images-c`
+- **동작**: cron은 각 버킷을 순서대로 처리합니다. bucket별 상태는 `data/state-{bucket}.json`에 따로 저장됩니다. API에서 URL 원본을 변환해 업로드할 때는 첫 번째 버킷을 기본 대상 버킷으로 사용합니다.
 
 ---
 
 ### 변환 설정 (`conversion`)
 
-이미지 변환 관련 설정입니다.
+이미지 변환 관련 설정입니다. 환경 변수로도 동일하게 설정할 수 있습니다.
 
-#### `formats` (선택)
+| 환경 변수 | 설명 | 기본값 |
+|-----------|------|--------|
+| `CONVERSION_FORMATS` | 허용 포맷 목록 (쉼표 구분, 예: `jpeg,jpg,png,gif,bmp,tiff`) | `jpeg,jpg,png,gif,bmp,tiff` |
+| `CONVERSION_QUALITY` | WebP 품질 (0-100) | `85` |
+| `CONVERSION_MAX_SIZE_MB` | 최대 이미지 크기 (MB) | `50` |
+
+#### `formats` (선택, YAML)
 - **타입**: array of strings
 - **설명**: WebP로 변환할 이미지 포맷 목록
 - **기본값**: `["jpeg", "jpg", "png", "gif", "bmp", "tiff"]`
 - **지원 포맷**: `jpeg`, `jpg`, `png`, `gif`, `bmp`, `tiff`
 - **예시**: `["jpeg", "jpg", "png"]`
 
-#### `quality` (선택)
+#### `quality` (선택, YAML)
 - **타입**: integer
 - **설명**: WebP 변환 품질 (0-100)
 - **기본값**: `85`
 - **범위**: 0 (최저 품질, 최소 크기) ~ 100 (최고 품질, 최대 크기)
 - **권장값**: 80-90
 
-#### `max_size_mb` (선택)
+#### `max_size_mb` (선택, YAML)
 - **타입**: integer
 - **설명**: 처리할 수 있는 최대 이미지 크기 (MB)
 - **기본값**: `50`
@@ -109,7 +119,13 @@ conversion:
 
 ### 리사이징 설정 (`resize`)
 
-이미지 리사이징 프리셋을 정의합니다.
+이미지 리사이징 프리셋을 정의합니다. 환경 변수로 thumbnail/medium/large 크기를 지정할 수 있습니다.
+
+| 환경 변수 (예: thumbnail) | 설명 | 기본값 |
+|---------------------------|------|--------|
+| `RESIZE_PRESET_THUMBNAIL_WIDTH`, `_HEIGHT` | thumbnail 프리셋 크기 | 150x150 |
+| `RESIZE_PRESET_MEDIUM_WIDTH`, `_HEIGHT` | medium 프리셋 크기 | 800x800 |
+| `RESIZE_PRESET_LARGE_WIDTH`, `_HEIGHT` | large 프리셋 크기 | 1920x1920 |
 
 #### `presets` (선택)
 - **타입**: object
@@ -143,7 +159,12 @@ resize:
 
 ### 크론 설정 (`cron`)
 
-크론 잡 스케줄링 설정입니다.
+크론 잡 스케줄링 설정입니다. 환경 변수로도 설정할 수 있습니다.
+
+| 환경 변수 | 설명 | 기본값 |
+|-----------|------|--------|
+| `CRON_SCHEDULE` | Cron 표현식 (분 시 일 월 요일) | `0 2 * * *` |
+| `CRON_ENABLED` | 크론 잡 활성화 (`true`/`false`, `1`/`0`) | env 미설정 시 false. 크론 사용 시 `CRON_ENABLED=true` 권장 |
 
 #### `schedule` (선택)
 - **타입**: string
@@ -183,7 +204,12 @@ cron:
 
 ### 서버 설정 (`server`)
 
-HTTP 서버 설정입니다.
+HTTP 서버 설정입니다. 환경 변수로도 설정할 수 있습니다.
+
+| 환경 변수 | 설명 | 기본값 |
+|-----------|------|--------|
+| `SERVER_PORT` | HTTP 서버 포트 | `4000` |
+| `SERVER_TIMEOUT_SECONDS` | 요청 타임아웃 (초) | `30` |
 
 #### `port` (선택)
 - **타입**: integer
@@ -255,6 +281,7 @@ server:
 | `R2_SECRET_KEY` | `r2.secret_key` | R2 Secret Key |
 | `R2_ENDPOINT` | `r2.endpoint` | R2 Endpoint URL |
 | `R2_BUCKET` | `r2.bucket` | R2 Bucket 이름 |
+| `R2_BUCKETS` | `r2.buckets` | 여러 R2 Bucket 이름, 쉼표 구분 |
 | `SERVER_PORT` | `server.port` | 서버 포트 |
 
 ### 환경 변수 사용 예시
@@ -265,6 +292,8 @@ export R2_ACCESS_KEY="your-access-key"
 export R2_SECRET_KEY="your-secret-key"
 export R2_ENDPOINT="https://abc123def456.r2.cloudflarestorage.com"
 export R2_BUCKET="my-image-bucket"
+# 여러 버킷 사용 시 R2_BUCKET 대신:
+# export R2_BUCKETS="my-image-bucket,my-second-bucket"
 
 # 서버 실행
 go run main.go
@@ -277,6 +306,8 @@ R2_ACCESS_KEY=your-access-key
 R2_SECRET_KEY=your-secret-key
 R2_ENDPOINT=https://abc123def456.r2.cloudflarestorage.com
 R2_BUCKET=my-image-bucket
+# 여러 버킷 사용 시 R2_BUCKET 대신:
+# R2_BUCKETS=my-image-bucket,my-second-bucket
 ```
 
 ---
@@ -289,7 +320,7 @@ R2_BUCKET=my-image-bucket
    - `r2.access_key`
    - `r2.secret_key`
    - `r2.endpoint`
-   - `r2.bucket`
+   - `r2.bucket` 또는 `r2.buckets`
 
 2. **값 유효성 검사**
    - `conversion.quality`: 0-100 범위
@@ -322,9 +353,10 @@ r2:
 
 ### 2. 파일 권한
 
-설정 파일의 권한을 제한합니다:
+`.env` 또는 `config/config.yaml`을 사용할 경우 권한을 제한합니다:
 ```bash
-chmod 600 config/config.yaml
+chmod 600 .env
+# 또는 YAML 사용 시: chmod 600 config/config.yaml
 ```
 
 ### 3. R2 권한 최소화
@@ -386,13 +418,13 @@ server:
 ```
 Error: config file not found: config/config.yaml
 ```
-**해결**: 설정 파일이 올바른 경로에 있는지 확인하거나 `-config` 플래그로 경로 지정
+**해결**: `config/config.yaml`이 없어도 됩니다. `.env`에 R2 접속 정보(`R2_ACCESS_KEY`, `R2_SECRET_KEY`, `R2_ENDPOINT`)와 `R2_BUCKET` 또는 `R2_BUCKETS`가 설정되어 있으면 서버는 환경 변수만으로 기동됩니다. `cp .env.example .env` 후 값을 채우세요.
 
 ### 필수 필드 누락
 ```
 Error: required field missing: r2.access_key
 ```
-**해결**: 설정 파일에 모든 필수 필드가 있는지 확인
+**해결**: `.env`(또는 환경 변수)에 R2 필수 항목 `R2_ACCESS_KEY`, `R2_SECRET_KEY`, `R2_ENDPOINT`와 `R2_BUCKET` 또는 `R2_BUCKETS`가 설정되어 있는지 확인
 
 ### R2 연결 실패
 ```

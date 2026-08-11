@@ -15,6 +15,7 @@ const maxResponseBodyLogLen = 4096
 
 // ImageEntry represents one converted image path (source and destination).
 type ImageEntry struct {
+	Bucket      string `json:"bucket,omitempty"`
 	Source      string `json:"source"`
 	Destination string `json:"destination"`
 }

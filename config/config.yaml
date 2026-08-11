@@ -1,4 +1,8 @@
 # 이미지 변환 설정
+# R2 접속 정보는 .env 파일 또는 환경 변수로 설정하세요.
+# 단일 버킷: R2_BUCKET=bucket-a
+# 여러 버킷: R2_BUCKETS=bucket-a,bucket-b,bucket-c
+
 conversion:
   formats: ["jpeg", "jpg", "png", "gif", "bmp", "tiff"]
   quality: 85  # WebP 변환 품질 (0-100)

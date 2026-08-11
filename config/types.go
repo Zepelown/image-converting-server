@@ -21,10 +21,11 @@ type WebhookConfig struct {
 
 // R2Config contains Cloudflare R2 connection settings
 type R2Config struct {
-	AccessKey string `yaml:"access_key"`
-	SecretKey string `yaml:"secret_key"`
-	Endpoint  string `yaml:"endpoint"`
-	Bucket    string `yaml:"bucket"`
+	AccessKey string   `yaml:"access_key"`
+	SecretKey string   `yaml:"secret_key"`
+	Endpoint  string   `yaml:"endpoint"`
+	Bucket    string   `yaml:"bucket"`
+	Buckets   []string `yaml:"buckets"`
 }
 
 // ConversionConfig contains image conversion settings

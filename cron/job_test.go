@@ -1,9 +1,14 @@
 package cron
 
 import (
+	"bytes"
 	"context"
+	"image"
 	"image-converting-server/config"
 	"image-converting-server/processor"
+	"image-converting-server/r2"
+	"image/color"
+	"image/png"
 	"os"
 	"path/filepath"
 	"testing"
@@ -98,6 +103,74 @@ func TestProcessImages(t *testing.T) {
 	}
 	if uploadedKeys["other.webp"] {
 		t.Errorf("did not expect non-image file to be converted")
+	}
+}
+
+func TestProcessImages_MultipleBuckets(t *testing.T) {
+	tempDir, err := os.MkdirTemp("", "cron_multi_bucket_test")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+	statePath := filepath.Join(tempDir, "state.json")
+
+	cfg := &config.Config{
+		R2: config.R2Config{
+			Bucket:  "images-a",
+			Buckets: []string{"images-a", "images-b"},
+		},
+		Conversion: config.ConversionConfig{
+			Formats:   []string{"png"},
+			Quality:   85,
+			MaxSizeMB: 50,
+		},
+		Cron:    config.CronConfig{Enabled: true, Schedule: "0 0 * * *"},
+		Webhook: config.WebhookConfig{URL: ""},
+	}
+
+	img := image.NewRGBA(image.Rect(0, 0, 1, 1))
+	img.Set(0, 0, color.RGBA{255, 0, 0, 255})
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		t.Fatalf("encode png: %v", err)
+	}
+	pngData := buf.Bytes()
+
+	uploaded := map[string]map[string]bool{
+		"images-a": {},
+		"images-b": {},
+	}
+	newMock := func(bucket string) *mockStorageClient {
+		return &mockStorageClient{
+			listFunc: func(ctx context.Context, since time.Time) ([]string, error) {
+				return []string{bucket + ".png"}, nil
+			},
+			downloadFunc: func(ctx context.Context, key string) ([]byte, error) {
+				return pngData, nil
+			},
+			uploadFunc: func(ctx context.Context, key string, data []byte, contentType string) error {
+				uploaded[bucket][key] = true
+				return nil
+			},
+		}
+	}
+
+	job := NewMultiBucketJob(cfg, map[string]r2.StorageClient{
+		"images-a": newMock("images-a"),
+		"images-b": newMock("images-b"),
+	}, processor.NewProcessor(*cfg), statePath)
+	job.ProcessImages()
+
+	if !uploaded["images-a"]["images-a.webp"] {
+		t.Error("expected images-a bucket upload")
+	}
+	if !uploaded["images-b"]["images-b.webp"] {
+		t.Error("expected images-b bucket upload")
+	}
+	for _, bucket := range cfg.R2.Buckets {
+		if _, err := os.Stat(filepath.Join(tempDir, "state-"+bucket+".json")); err != nil {
+			t.Errorf("expected state file for %s: %v", bucket, err)
+		}
 	}
 }
 

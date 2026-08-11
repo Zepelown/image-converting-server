@@ -58,9 +58,12 @@ API 엔드포인트 상세 명세, 요청/응답 형식, 에러 처리, 사용 �
 
 ## 빠른 시작
 
-### 1. 설정 파일 준비
+### 1. 설정 준비
 ```bash
-# config/config.yaml 파일 생성 및 R2 접속 정보 입력
+cp .env.example .env
+# .env에 R2 접속 정보(R2_ACCESS_KEY, R2_SECRET_KEY, R2_ENDPOINT) 입력
+# 단일 버킷은 R2_BUCKET, 여러 버킷은 R2_BUCKETS 사용
+# config/config.yaml은 선택 사항 (없으면 .env만으로 기동)
 ```
 
 자세한 내용은 [CONFIG.md](./CONFIG.md) 참조

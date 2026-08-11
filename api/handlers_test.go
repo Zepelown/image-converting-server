@@ -15,6 +15,7 @@ import (
 
 	"image-converting-server/config"
 	"image-converting-server/processor"
+	"image-converting-server/r2"
 	"image-converting-server/webhook"
 )
 
@@ -144,6 +145,76 @@ func TestHandleConvert_R2(t *testing.T) {
 	}
 	if resp.Destination != "r2://test-bucket/test.webp" {
 		t.Errorf("unexpected destination: %s", resp.Destination)
+	}
+}
+
+func TestHandleConvert_R2RoutesByBucket(t *testing.T) {
+	img := image.NewRGBA(image.Rect(0, 0, 1, 1))
+	img.Set(0, 0, color.RGBA{255, 0, 0, 255})
+	var buf bytes.Buffer
+	png.Encode(&buf, img)
+	imgData := buf.Bytes()
+
+	cfg := &config.Config{
+		R2: config.R2Config{Bucket: "images-a", Buckets: []string{"images-a", "images-b"}},
+		Conversion: config.ConversionConfig{
+			Formats:   []string{"png"},
+			Quality:   80,
+			MaxSizeMB: 1,
+		},
+	}
+
+	defaultDownloaded := false
+	targetDownloaded := false
+	targetUploaded := false
+	defaultStorage := &mockStorageClient{
+		downloadFunc: func(ctx context.Context, key string) ([]byte, error) {
+			defaultDownloaded = true
+			return nil, nil
+		},
+		uploadFunc: func(ctx context.Context, key string, data []byte, contentType string) error {
+			t.Fatal("default bucket should not receive upload")
+			return nil
+		},
+	}
+	targetStorage := &mockStorageClient{
+		downloadFunc: func(ctx context.Context, key string) ([]byte, error) {
+			targetDownloaded = true
+			if key != "test.png" {
+				t.Errorf("expected key test.png, got %s", key)
+			}
+			return imgData, nil
+		},
+		uploadFunc: func(ctx context.Context, key string, data []byte, contentType string) error {
+			targetUploaded = true
+			if key != "test.webp" {
+				t.Errorf("expected key test.webp, got %s", key)
+			}
+			return nil
+		},
+	}
+
+	proc := processor.NewProcessor(*cfg)
+	h := NewMultiBucketHandler(map[string]r2.StorageClient{
+		"images-a": defaultStorage,
+		"images-b": targetStorage,
+	}, proc, cfg)
+
+	reqBody := ConvertRequest{Source: "r2://images-b/test.png"}
+	body, _ := json.Marshal(reqBody)
+	req := httptest.NewRequest("POST", "/api/convert", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+
+	h.HandleConvert(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("expected status %d, got %d, body: %s", http.StatusOK, w.Code, w.Body.String())
+	}
+	if defaultDownloaded {
+		t.Error("default bucket should not receive download")
+	}
+	if !targetDownloaded || !targetUploaded {
+		t.Errorf("expected target bucket download/upload, got download=%v upload=%v", targetDownloaded, targetUploaded)
 	}
 }
 

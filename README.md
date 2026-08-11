@@ -53,11 +53,18 @@ The server will start on `http://localhost:4000`
 
 ### Configuration
 
-Main settings live in `config/config.yaml`:
+Configuration is done via **environment variables** (and optionally a `.env` file). Copy `.env.example` to `.env` and fill in your values:
 
-- **Conversion**: formats, quality, max image size
-- **Resize presets**: thumbnail, medium, large (used as `?preset=thumbnail` in API)
-- **Cron**: scheduled WebP conversion job
+```bash
+cp .env.example .env
+```
+
+All settings (R2, conversion, resize presets, cron, server) can be set in `.env`. If `config/config.yaml` exists, it is loaded first and env vars override it; if the file is missing, the server runs with env (and defaults) only.
+
+- **R2**: set `R2_BUCKET` for one bucket, or `R2_BUCKETS=bucket-a,bucket-b` to process multiple buckets in the same R2 account.
+- **Conversion**: `CONVERSION_FORMATS`, `CONVERSION_QUALITY`, `CONVERSION_MAX_SIZE_MB`
+- **Resize presets**: optional `RESIZE_PRESETS=thumbnail:150x150,medium:800x800` (used as `?preset=thumbnail` in API)
+- **Cron**: `CRON_SCHEDULE`, `CRON_ENABLED` (set `CRON_ENABLED=true` to enable the scheduled job)
 
 Cron uses standard cron expression **(minute hour day month weekday)** in **server local time**. Default `"0 12 * * *"` runs at **UTC 12:00** (noon UTC). On a UTC server that equals **21:00 KST**. Adjust the hour if your server uses a different timezone. See [docs/CRON.md](docs/CRON.md) for details.
 
@@ -86,6 +93,7 @@ When a **cron** batch run finishes, the server can send a **POST** request to a 
 | `processed_count` | number | Number of images successfully converted in this run. |
 | `failed_count` | number | Number of images that failed (download, convert, or upload). |
 | `images` | array | List of converted images in this run. |
+| `images[].bucket` | string | R2 bucket name. Present for cron conversions. |
 | `images[].source` | string | Original object key (e.g. `path/to/image.jpg`). |
 | `images[].destination` | string | New object key after conversion (e.g. `path/to/image.webp`). |
 
@@ -97,9 +105,9 @@ When a **cron** batch run finishes, the server can send a **POST** request to a 
   "processed_count": 3,
   "failed_count": 0,
   "images": [
-    { "source": "uploads/photo.jpg", "destination": "uploads/photo.webp" },
-    { "source": "assets/logo.png", "destination": "assets/logo.webp" },
-    { "source": "gallery/1.gif", "destination": "gallery/1.webp" }
+    { "bucket": "images-a", "source": "uploads/photo.jpg", "destination": "uploads/photo.webp" },
+    { "bucket": "images-b", "source": "assets/logo.png", "destination": "assets/logo.webp" },
+    { "bucket": "images-c", "source": "gallery/1.gif", "destination": "gallery/1.webp" }
   ]
 }
 ```
@@ -108,7 +116,7 @@ If no images were converted in the run, `images` is an empty array and counts ma
 
 #### Configuration
 
-Set the webhook URL (and optional retry settings) via environment variables (or `config/config.yaml` under `webhook`):
+Set the webhook URL (and optional retry settings) via environment variables in `.env`:
 
 | Variable | Description | Default |
 |----------|-------------|---------|

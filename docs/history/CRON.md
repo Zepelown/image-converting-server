@@ -307,15 +307,17 @@ cron:
 
 **원인**:
 1. **버킷 이름 불일치**: 서버가 다른 버킷을 바라보고 있음. 로그에 `Listing bucket: <이름>`이 찍히므로, 해당 이름이 실제 사용 중인 버킷(예: `moadong-dev`)과 같은지 확인하세요.
-2. **환경 변수**: `.env` 또는 환경 변수 `R2_BUCKET`이 올바른 버킷 이름(예: `moadong-dev`)으로 설정되어 있는지 확인하세요.
+2. **환경 변수**: `.env` 또는 환경 변수 `R2_BUCKET` 또는 `R2_BUCKETS`가 올바른 버킷 이름(예: `moadong-dev`)으로 설정되어 있는지 확인하세요.
 3. **상태 파일**: 이전 실행에서 `last_processed_time`이 저장된 경우, **그 시각 이후에 추가/수정된 객체만** 조회합니다. 그 시점 이전에 올린 이미지는 대상에서 제외됩니다.
 
 **해결 방법**:
 1. 서버 재시작 후 크론이 돌 때 나오는 `Listing bucket: ...` 로그로 버킷 이름 확인.
-2. `R2_BUCKET=moadong-dev` 등 올바른 버킷 이름으로 설정.
+2. 단일 버킷은 `R2_BUCKET=moadong-dev`, 여러 버킷은 `R2_BUCKETS=moadong-dev,another-bucket`처럼 올바른 버킷 이름으로 설정.
 3. **전체 재스캔**이 필요하면 상태 파일을 삭제한 뒤 다음 크론 실행을 기다리기:
    ```bash
    rm data/state.json
+   # 여러 버킷 사용 시:
+   rm data/state-*.json
    ```
 
 ---

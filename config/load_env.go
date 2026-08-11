@@ -40,19 +40,19 @@ func loadR2FromEnv(cfg *Config) {
 	}
 	if v := os.Getenv("R2_BUCKET"); v != "" {
 		cfg.R2.Bucket = v
+		cfg.R2.Buckets = []string{v}
+	}
+	if v := os.Getenv("R2_BUCKETS"); v != "" {
+		cfg.R2.Buckets = splitUniqueCSV(v)
+		if len(cfg.R2.Buckets) > 0 {
+			cfg.R2.Bucket = cfg.R2.Buckets[0]
+		}
 	}
 }
 
 func loadConversionFromEnv(cfg *Config) {
 	if s := os.Getenv("CONVERSION_FORMATS"); s != "" {
-		parts := strings.Split(s, ",")
-		var formats []string
-		for _, p := range parts {
-			p = strings.TrimSpace(p)
-			if p != "" {
-				formats = append(formats, p)
-			}
-		}
+		formats := splitCSV(s)
 		if len(formats) > 0 {
 			cfg.Conversion.Formats = formats
 		}
@@ -173,4 +173,37 @@ func loadWebhookFromEnv(cfg *Config) {
 	if v := os.Getenv("WEBHOOK_PENDING_DIR"); v != "" {
 		cfg.Webhook.PendingDir = v
 	}
+}
+
+func splitCSV(value string) []string {
+	parts := strings.Split(value, ",")
+	var values []string
+	for _, p := range parts {
+		s := strings.TrimSpace(p)
+		if s != "" {
+			values = append(values, s)
+		}
+	}
+	return values
+}
+
+func splitUniqueCSV(value string) []string {
+	return normalizeBuckets(strings.Split(value, ","))
+}
+
+func normalizeBuckets(buckets []string) []string {
+	seen := make(map[string]struct{}, len(buckets))
+	var normalized []string
+	for _, bucket := range buckets {
+		trimmed := strings.TrimSpace(bucket)
+		if trimmed == "" {
+			continue
+		}
+		if _, ok := seen[trimmed]; ok {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		normalized = append(normalized, trimmed)
+	}
+	return normalized
 }

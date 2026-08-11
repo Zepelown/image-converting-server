@@ -1,6 +1,9 @@
 package config
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // Validate validates the configuration
 func Validate(config *Config) error {
@@ -14,8 +17,16 @@ func Validate(config *Config) error {
 	if config.R2.Endpoint == "" {
 		return fmt.Errorf("required field missing: r2.endpoint")
 	}
-	if config.R2.Bucket == "" {
-		return fmt.Errorf("required field missing: r2.bucket")
+	if config.R2.Bucket == "" && len(config.R2.Buckets) == 0 {
+		return fmt.Errorf("required field missing: r2.bucket or r2.buckets")
+	}
+	if strings.TrimSpace(config.R2.Bucket) == "" && config.R2.Bucket != "" {
+		return fmt.Errorf("r2.bucket must not be empty")
+	}
+	for i, bucket := range config.R2.Buckets {
+		if strings.TrimSpace(bucket) == "" {
+			return fmt.Errorf("r2.buckets[%d] must not be empty", i)
+		}
 	}
 
 	// Validate conversion settings

@@ -348,7 +348,7 @@ image-converting-server/
 ├── main.go                 # 서버 진입점
 ├── config/
 │   ├── config.go          # 설정 구조체 및 로더
-│   └── config.yaml        # 설정 파일 예시
+│   └── config.yaml        # 설정 파일 (선택, 없으면 .env만 사용)
 ├── r2/
 │   └── client.go          # R2 클라이언트
 ├── processor/

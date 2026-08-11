@@ -1,7 +1,19 @@
 package config
 
+import "strings"
+
 // setDefaults sets default values for optional configuration fields
 func setDefaults(config *Config) {
+	// R2 defaults/compatibility
+	config.R2.Bucket = strings.TrimSpace(config.R2.Bucket)
+	config.R2.Buckets = normalizeBuckets(config.R2.Buckets)
+	if len(config.R2.Buckets) == 0 && config.R2.Bucket != "" {
+		config.R2.Buckets = []string{config.R2.Bucket}
+	}
+	if config.R2.Bucket == "" && len(config.R2.Buckets) > 0 {
+		config.R2.Bucket = config.R2.Buckets[0]
+	}
+
 	// Conversion defaults
 	if len(config.Conversion.Formats) == 0 {
 		config.Conversion.Formats = []string{"jpeg", "jpg", "png", "gif", "bmp", "tiff"}

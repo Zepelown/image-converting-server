@@ -21,8 +21,8 @@
 **목표**: YAML 설정 파일을 로드하고 검증하는 기능 구현
 
 **파일 생성**:
-- `config/config.go` - 설정 구조체 및 로더
-- `config/config.yaml` - 설정 파일 예시
+- `config/config.go` - 설정 구조체 및 로더 (YAML 선택 로드, .env/env 지원)
+- `config/config.yaml` - 설정 파일 예시 (선택, 없으면 .env만으로 기동)
 
 **작업 목록**:
 - [x] 설정 구조체 정의 (`Config`, `R2Config`, `ConversionConfig`, `ResizeConfig`, `CronConfig`)
@@ -210,7 +210,7 @@
 ```
 1. config/
    ├── config.go
-   └── config.yaml (예시)
+   └── config.yaml (예시, 선택)
 
 2. r2/
    └── client.go

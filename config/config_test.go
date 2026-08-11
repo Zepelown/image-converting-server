@@ -2,6 +2,7 @@ package config
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -290,23 +291,16 @@ SERVER_PORT=9000
 	}
 	defer os.Chdir(oldDir)
 
-	envDir := tmpEnvFile.Name()
-	envDir = envDir[:len(envDir)-len(".env-*")+1]
-	// Actually, we need to use the directory where the .env file is
-	envDir = tmpEnvFile.Name()
-	for i := len(envDir) - 1; i >= 0; i-- {
-		if envDir[i] == '/' {
-			envDir = envDir[:i]
-			break
-		}
-	}
+	envDir := filepath.Dir(tmpEnvFile.Name())
 
 	os.Chdir(envDir)
 	defer os.Chdir(oldDir)
 
 	// Rename to .env in that directory
-	envPath := envDir + "/.env"
-	os.Rename(tmpEnvFile.Name(), envPath)
+	envPath := filepath.Join(envDir, ".env")
+	if err := os.Rename(tmpEnvFile.Name(), envPath); err != nil {
+		t.Fatalf("Failed to rename to .env: %v", err)
+	}
 	defer os.Remove(envPath)
 
 	// Create a minimal config file
@@ -351,6 +345,83 @@ server:
 	}
 	if config.Server.Port != 9000 {
 		t.Errorf("Expected .env port 9000, got %d", config.Server.Port)
+	}
+}
+
+func TestLoadConfigEnvOnly(t *testing.T) {
+	envVars := map[string]string{
+		"R2_ACCESS_KEY":      "envonly-access-key",
+		"R2_SECRET_KEY":      "envonly-secret-key",
+		"R2_ENDPOINT":        "https://envonly.r2.cloudflarestorage.com",
+		"R2_BUCKET":          "envonly-bucket",
+		"SERVER_PORT":        "5000",
+		"CONVERSION_QUALITY": "90",
+		"CRON_SCHEDULE":      "0 3 * * *",
+		"CRON_ENABLED":       "true",
+	}
+	for k, v := range envVars {
+		os.Setenv(k, v)
+	}
+	defer func() {
+		for k := range envVars {
+			os.Unsetenv(k)
+		}
+	}()
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load(\"\"): %v", err)
+	}
+
+	if cfg.R2.AccessKey != "envonly-access-key" || cfg.R2.Bucket != "envonly-bucket" {
+		t.Errorf("R2 from env: got access_key=%q bucket=%q", cfg.R2.AccessKey, cfg.R2.Bucket)
+	}
+	if cfg.Server.Port != 5000 {
+		t.Errorf("SERVER_PORT: got %d", cfg.Server.Port)
+	}
+	if cfg.Conversion.Quality != 90 {
+		t.Errorf("CONVERSION_QUALITY: got %d", cfg.Conversion.Quality)
+	}
+	if cfg.Cron.Schedule != "0 3 * * *" || !cfg.Cron.Enabled {
+		t.Errorf("Cron: got schedule=%q enabled=%v", cfg.Cron.Schedule, cfg.Cron.Enabled)
+	}
+	if len(cfg.Conversion.Formats) == 0 {
+		t.Error("expected default conversion formats")
+	}
+}
+
+func TestLoadConfigWithMultipleBuckets(t *testing.T) {
+	envVars := map[string]string{
+		"R2_ACCESS_KEY": "multi-access-key",
+		"R2_SECRET_KEY": "multi-secret-key",
+		"R2_ENDPOINT":   "https://multi.r2.cloudflarestorage.com",
+		"R2_BUCKETS":    "images-a, images-b,images-a, images-c",
+	}
+	for k, v := range envVars {
+		os.Setenv(k, v)
+	}
+	defer func() {
+		for k := range envVars {
+			os.Unsetenv(k)
+		}
+	}()
+
+	cfg, err := Load("")
+	if err != nil {
+		t.Fatalf("Load(\"\"): %v", err)
+	}
+
+	if cfg.R2.Bucket != "images-a" {
+		t.Errorf("expected first bucket as primary, got %q", cfg.R2.Bucket)
+	}
+	wantBuckets := []string{"images-a", "images-b", "images-c"}
+	if len(cfg.R2.Buckets) != len(wantBuckets) {
+		t.Fatalf("expected %d buckets, got %d: %#v", len(wantBuckets), len(cfg.R2.Buckets), cfg.R2.Buckets)
+	}
+	for i, want := range wantBuckets {
+		if cfg.R2.Buckets[i] != want {
+			t.Errorf("bucket[%d]: expected %q, got %q", i, want, cfg.R2.Buckets[i])
+		}
 	}
 }
 

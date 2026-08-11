@@ -23,6 +23,7 @@ type Job struct {
 	cron      *cron.Cron
 	cfg       *config.Config
 	r2Client  r2.StorageClient
+	r2Clients map[string]r2.StorageClient
 	processor *processor.Processor
 	statePath string
 	lockPath  string
@@ -34,6 +35,19 @@ func NewJob(cfg *config.Config, r2Client r2.StorageClient, proc *processor.Proce
 		cron:      cron.New(),
 		cfg:       cfg,
 		r2Client:  r2Client,
+		r2Clients: map[string]r2.StorageClient{cfg.R2.Bucket: r2Client},
+		processor: proc,
+		statePath: statePath,
+		lockPath:  filepath.Join(filepath.Dir(statePath), ".lock"),
+	}
+}
+
+// NewMultiBucketJob creates a cron job that processes each configured bucket.
+func NewMultiBucketJob(cfg *config.Config, r2Clients map[string]r2.StorageClient, proc *processor.Processor, statePath string) *Job {
+	return &Job{
+		cron:      cron.New(),
+		cfg:       cfg,
+		r2Clients: r2Clients,
 		processor: proc,
 		statePath: statePath,
 		lockPath:  filepath.Join(filepath.Dir(statePath), ".lock"),
@@ -75,12 +89,54 @@ func (j *Job) ProcessImages() {
 
 	log.Println("[INFO] Cron job execution started")
 	startTime := time.Now()
+	ctx := context.Background()
 
+	processedCount := 0
+	failedCount := 0
+	var converted []webhook.ImageEntry
+
+	for _, bucket := range j.bucketNames() {
+		client, ok := j.r2Clients[bucket]
+		if !ok {
+			log.Printf("[ERROR] R2 client for bucket %s is not configured", bucket)
+			failedCount++
+			continue
+		}
+
+		bucketProcessed, bucketFailed, bucketConverted := j.processBucket(ctx, bucket, client, startTime)
+		processedCount += bucketProcessed
+		failedCount += bucketFailed
+		converted = append(converted, bucketConverted...)
+	}
+
+	log.Printf("[INFO] Cron job execution completed. Processed: %d, Failed: %d, Duration: %v",
+		processedCount, failedCount, time.Since(startTime))
+
+	if j.cfg.Webhook.URL != "" {
+		payload := &webhook.BatchPayload{
+			Event:          "batch.completed",
+			ProcessedCount: processedCount,
+			FailedCount:    failedCount,
+			Images:         converted,
+		}
+		if err := webhook.SendBulk(ctx, j.cfg.Webhook.URL, payload, 10*time.Second); err != nil {
+			log.Printf("[WARN] Webhook send failed (batch completed successfully): %v", err)
+			if j.cfg.Webhook.RetryEnabled {
+				if storeErr := webhook.StorePending(j.cfg.Webhook.PendingDir, j.cfg.Webhook.URL, payload); storeErr != nil {
+					log.Printf("[ERROR] Webhook: failed to store pending for retry: %v", storeErr)
+				}
+			}
+		}
+	}
+}
+
+func (j *Job) processBucket(ctx context.Context, bucket string, client r2.StorageClient, startTime time.Time) (int, int, []webhook.ImageEntry) {
 	// 2. Load state
-	currentState, err := state.LoadState(j.statePath)
+	statePath := j.statePathForBucket(bucket)
+	currentState, err := state.LoadState(statePath)
 	if err != nil {
-		log.Printf("[ERROR] Failed to load state: %v", err)
-		return
+		log.Printf("[ERROR] Failed to load state for bucket %s: %v", bucket, err)
+		return 0, 1, nil
 	}
 
 	// 3. List objects since last processed time
@@ -88,15 +144,14 @@ func (j *Job) ProcessImages() {
 	if !currentState.LastProcessedTime.IsZero() {
 		sinceStr = currentState.LastProcessedTime.Format(time.RFC3339)
 	}
-	log.Printf("[INFO] Listing bucket: %s (since: %s)", j.cfg.R2.Bucket, sinceStr)
-	ctx := context.Background()
-	keys, err := j.r2Client.ListObjects(ctx, currentState.LastProcessedTime)
+	log.Printf("[INFO] Listing bucket: %s (since: %s)", bucket, sinceStr)
+	keys, err := client.ListObjects(ctx, currentState.LastProcessedTime)
 	if err != nil {
-		log.Printf("[ERROR] Failed to list objects from R2: %v", err)
-		return
+		log.Printf("[ERROR] Failed to list objects from R2 bucket %s: %v", bucket, err)
+		return 0, 1, nil
 	}
 
-	log.Printf("[INFO] Found %d objects to check", len(keys))
+	log.Printf("[INFO] Found %d objects to check in bucket %s", len(keys), bucket)
 
 	processedCount := 0
 	failedCount := 0
@@ -117,9 +172,9 @@ func (j *Job) ProcessImages() {
 		log.Printf("[INFO] Processing image: %s", key)
 
 		// Download
-		data, err := j.r2Client.DownloadImage(ctx, key)
+		data, err := client.DownloadImage(ctx, key)
 		if err != nil {
-			log.Printf("[ERROR] Failed to download image %s: %v", key, err)
+			log.Printf("[ERROR] Failed to download image %s from bucket %s: %v", key, bucket, err)
 			failedCount++
 			continue
 		}
@@ -134,16 +189,20 @@ func (j *Job) ProcessImages() {
 
 		// Upload with .webp extension
 		destKey := j.changeExtensionToWebp(key)
-		err = j.r2Client.UploadImage(ctx, destKey, webpData, "image/webp")
+		err = client.UploadImage(ctx, destKey, webpData, "image/webp")
 		if err != nil {
-			log.Printf("[ERROR] Failed to upload converted image %s: %v", destKey, err)
+			log.Printf("[ERROR] Failed to upload converted image %s to bucket %s: %v", destKey, bucket, err)
 			failedCount++
 			continue
 		}
 
-		log.Printf("[INFO] Successfully converted %s to %s", key, destKey)
+		log.Printf("[INFO] Successfully converted %s/%s to %s/%s", bucket, key, bucket, destKey)
 		processedCount++
-		converted = append(converted, webhook.ImageEntry{Source: key, Destination: destKey})
+		converted = append(converted, webhook.ImageEntry{
+			Bucket:      bucket,
+			Source:      key,
+			Destination: destKey,
+		})
 
 		// Delete original image
 		/*
@@ -171,29 +230,42 @@ func (j *Job) ProcessImages() {
 	// so next time we only look at images modified after this run started.
 	currentState.UpdateLastProcessedTime(startTime)
 
-	if err := state.SaveState(j.statePath, currentState); err != nil {
-		log.Printf("[ERROR] Failed to save state: %v", err)
+	if err := state.SaveState(statePath, currentState); err != nil {
+		log.Printf("[ERROR] Failed to save state for bucket %s: %v", bucket, err)
 	}
 
-	log.Printf("[INFO] Cron job execution completed. Processed: %d, Failed: %d, Duration: %v",
-		processedCount, failedCount, time.Since(startTime))
+	log.Printf("[INFO] Bucket %s processing completed. Processed: %d, Failed: %d",
+		bucket, processedCount, failedCount)
 
-	if j.cfg.Webhook.URL != "" {
-		payload := &webhook.BatchPayload{
-			Event:          "batch.completed",
-			ProcessedCount: processedCount,
-			FailedCount:    failedCount,
-			Images:         converted,
-		}
-		if err := webhook.SendBulk(ctx, j.cfg.Webhook.URL, payload, 10*time.Second); err != nil {
-			log.Printf("[WARN] Webhook send failed (batch completed successfully): %v", err)
-			if j.cfg.Webhook.RetryEnabled {
-				if storeErr := webhook.StorePending(j.cfg.Webhook.PendingDir, j.cfg.Webhook.URL, payload); storeErr != nil {
-					log.Printf("[ERROR] Webhook: failed to store pending for retry: %v", storeErr)
-				}
-			}
+	return processedCount, failedCount, converted
+}
+
+func (j *Job) statePathForBucket(bucket string) string {
+	if len(j.cfg.R2.Buckets) <= 1 {
+		return j.statePath
+	}
+	dir := filepath.Dir(j.statePath)
+	return filepath.Join(dir, fmt.Sprintf("state-%s.json", sanitizeBucketForPath(bucket)))
+}
+
+func sanitizeBucketForPath(bucket string) string {
+	replacer := strings.NewReplacer("\\", "_", "/", "_", ":", "_")
+	return replacer.Replace(bucket)
+}
+
+func (j *Job) bucketNames() []string {
+	if len(j.cfg.R2.Buckets) > 0 {
+		return j.cfg.R2.Buckets
+	}
+	if j.cfg.R2.Bucket != "" {
+		return []string{j.cfg.R2.Bucket}
+	}
+	if len(j.r2Clients) == 1 {
+		for bucket := range j.r2Clients {
+			return []string{bucket}
 		}
 	}
+	return nil
 }
 
 func (j *Job) isSupportedExtension(key string) bool {
