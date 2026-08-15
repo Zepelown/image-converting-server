@@ -29,7 +29,7 @@ Image Converting Server는 Cloudflare R2에 저장된 이미지를 WebP 형식�
   - WebP 변환: `github.com/skrashevich/go-libwebp` (CGO 불필요, Windows에서 GCC 없이 빌드 가능)
   - 리사이징: `github.com/disintegration/imaging`
 - **스케줄링**: `github.com/robfig/cron/v3`
-- **설정 관리**: YAML 파일 (`gopkg.in/yaml.v3`)
+- **설정 관리**: 환경 변수 및 `.env` (`github.com/joho/godotenv`)
 
 ## 문서 구조
 
@@ -63,7 +63,7 @@ API 엔드포인트 상세 명세, 요청/응답 형식, 에러 처리, 사용 �
 cp .env.example .env
 # .env에 R2 접속 정보(R2_ACCESS_KEY, R2_SECRET_KEY, R2_ENDPOINT) 입력
 # 단일 버킷은 R2_BUCKET, 여러 버킷은 R2_BUCKETS 사용
-# config/config.yaml은 선택 사항 (없으면 .env만으로 기동)
+# config/config.yaml은 런타임에 로드되지 않으며 참고용 샘플입니다.
 ```
 
 자세한 내용은 [CONFIG.md](./CONFIG.md) 참조
@@ -121,7 +121,7 @@ curl -X POST http://localhost:8080/api/convert \
 
 ## 주요 컴포넌트
 
-1. **설정 관리** (`config/`): YAML 기반 설정 로드 및 검증
+1. **설정 관리** (`config/`): `.env`/환경 변수 기반 설정 로드 및 검증
 2. **R2 클라이언트** (`r2/`): R2 접속, 이미지 다운로드/업로드
 3. **이미지 프로세서** (`processor/`): WebP 변환 및 리사이징
 4. **크론 잡** (`cron/`): 일일 스케줄 실행 및 이미지 변환
@@ -134,7 +134,7 @@ curl -X POST http://localhost:8080/api/convert \
 
 1. **구현 계획 확인**: [IMPLEMENTATION.md](./IMPLEMENTATION.md)에서 단계별 구현 계획 확인
 2. **API 명세 확인**: [API.md](./API.md)에서 엔드포인트 상세 확인
-3. **설정 준비**: [CONFIG.md](./CONFIG.md)에서 설정 파일 작성
+3. **설정 준비**: [CONFIG.md](./CONFIG.md)에서 `.env` 작성
 4. **사용 가이드**: [USAGE.md](./USAGE.md)에서 설치 및 실행 방법 확인
 
 ## 라이선스

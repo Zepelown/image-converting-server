@@ -53,7 +53,7 @@ flowchart TD
 
 ### 1. 설정 관리 (config/)
 
-**역할**: YAML 설정 파일을 로드하고 검증하여 다른 컴포넌트에 제공
+**역할**: `.env`/환경 변수에서 설정을 로드하고 검증하여 다른 컴포넌트에 제공
 
 **주요 구조체**:
 ```go
@@ -347,8 +347,9 @@ state ───┘
 image-converting-server/
 ├── main.go                 # 서버 진입점
 ├── config/
-│   ├── config.go          # 설정 구조체 및 로더
-│   └── config.yaml        # 설정 파일 (선택, 없으면 .env만 사용)
+│   ├── config.go          # 레거시 YAML 로더
+│   ├── load_env.go        # 현재 서버 진입점에서 사용하는 env 로더
+│   └── config.yaml        # 참고용 샘플
 ├── r2/
 │   └── client.go          # R2 클라이언트
 ├── processor/

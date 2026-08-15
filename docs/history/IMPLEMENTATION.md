@@ -18,15 +18,16 @@
 
 ### Phase 1: 설정 관리
 
-**목표**: YAML 설정 파일을 로드하고 검증하는 기능 구현
+**목표**: `.env`/환경 변수 설정을 로드하고 검증하는 기능 구현
 
 **파일 생성**:
-- `config/config.go` - 설정 구조체 및 로더 (YAML 선택 로드, .env/env 지원)
-- `config/config.yaml` - 설정 파일 예시 (선택, 없으면 .env만으로 기동)
+- `config/load_env.go` - 현재 서버 진입점에서 사용하는 `.env`/환경 변수 로더
+- `config/config.go` - 레거시 YAML 로더
+- `config/config.yaml` - 참고용 설정 예시
 
 **작업 목록**:
 - [x] 설정 구조체 정의 (`Config`, `R2Config`, `ConversionConfig`, `ResizeConfig`, `CronConfig`)
-- [x] YAML 파일 로드 함수 구현
+- [x] `.env`/환경 변수 로드 함수 구현
 - [x] 설정 검증 함수 구현 (필수 필드 확인)
 - [x] 환경 변수 및 .env 파일 지원 (R2 관련 필수)
 - [x] 기본값 설정
@@ -210,7 +211,8 @@
 ```
 1. config/
    ├── config.go
-   └── config.yaml (예시, 선택)
+   ├── load_env.go
+   └── config.yaml (참고용 예시)
 
 2. r2/
    └── client.go
@@ -258,7 +260,7 @@ state/ ───┘
 
 #### Phase 1: 설정 관리
 - [x] `config/config.go` 구현 완료
-- [x] `config/config.yaml` 예시 작성
+- [x] `.env`/환경 변수 기반 설정 로드 구현
 - [x] 설정 로드 테스트 통과
 - [x] 설정 검증 테스트 통과
 

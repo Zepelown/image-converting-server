@@ -116,7 +116,8 @@ cron:
   - Crontab 형식.
   - 비어 있으면 기본 `"0 2 * * *"`로 설정.
 - `enabled` (bool)
-  - YAML 값 그대로 사용 (별도 기본 로직 없음).
+  - `CRON_ENABLED`가 `"true"`/`"1"`이면 true, `"false"`/`"0"`이면 false.
+  - env 미설정 시 Go zero value인 false가 유지됨.
   - `true`여야 실제 크론 잡이 동작.
 
 ##### ServerConfig

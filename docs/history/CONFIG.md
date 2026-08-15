@@ -4,12 +4,12 @@ Image Converting Server의 설정 파일 구조 및 각 설정 항목에 대한 
 
 ## 설정 방식
 
-설정은 **환경 변수**(및 `.env` 파일)로 합니다. `cp .env.example .env` 후 값을 채우면 됩니다. **YAML 없이 .env만으로 기동 가능**합니다.
+설정은 **환경 변수**(및 `.env` 파일)로 합니다. `cp .env.example .env` 후 값을 채우면 됩니다. 현재 서버 진입점(`main.go`)은 `config.LoadFromEnv()`만 호출합니다.
 
 - **필수**: R2 접속 정보(`R2_ACCESS_KEY`, `R2_SECRET_KEY`, `R2_ENDPOINT`)와 버킷 설정(`R2_BUCKET` 또는 `R2_BUCKETS`)은 반드시 환경 변수 또는 `.env`에 설정해야 합니다.
-- **선택**: `config/config.yaml` 파일이 있으면 먼저 로드되고, 환경 변수가 그 값을 덮어씁니다. 파일이 없으면 환경 변수와 기본값만 사용합니다.
+- `config/config.yaml`은 런타임에 로드되지 않는 참고용 샘플입니다. 실제 설정은 `.env` 또는 시스템 환경 변수에 작성해야 합니다.
 
-## 설정 파일 구조 (YAML 선택 시)
+## 참고용 설정 구조
 
 ### 전체 구조
 
@@ -87,21 +87,21 @@ Cloudflare R2 접속 정보는 보안을 위해 **환경 변수** 또는 **.env 
 | `CONVERSION_QUALITY` | WebP 품질 (0-100) | `85` |
 | `CONVERSION_MAX_SIZE_MB` | 최대 이미지 크기 (MB) | `50` |
 
-#### `formats` (선택, YAML)
+#### `formats` (참고)
 - **타입**: array of strings
 - **설명**: WebP로 변환할 이미지 포맷 목록
 - **기본값**: `["jpeg", "jpg", "png", "gif", "bmp", "tiff"]`
 - **지원 포맷**: `jpeg`, `jpg`, `png`, `gif`, `bmp`, `tiff`
 - **예시**: `["jpeg", "jpg", "png"]`
 
-#### `quality` (선택, YAML)
+#### `quality` (참고)
 - **타입**: integer
 - **설명**: WebP 변환 품질 (0-100)
 - **기본값**: `85`
 - **범위**: 0 (최저 품질, 최소 크기) ~ 100 (최고 품질, 최대 크기)
 - **권장값**: 80-90
 
-#### `max_size_mb` (선택, YAML)
+#### `max_size_mb` (참고)
 - **타입**: integer
 - **설명**: 처리할 수 있는 최대 이미지 크기 (MB)
 - **기본값**: `50`
@@ -353,10 +353,9 @@ r2:
 
 ### 2. 파일 권한
 
-`.env` 또는 `config/config.yaml`을 사용할 경우 권한을 제한합니다:
+`.env` 파일 권한을 제한합니다:
 ```bash
 chmod 600 .env
-# 또는 YAML 사용 시: chmod 600 config/config.yaml
 ```
 
 ### 3. R2 권한 최소화
@@ -369,42 +368,29 @@ R2 API 키는 필요한 최소 권한만 부여:
 
 ## 설정 파일 템플릿
 
-새 프로젝트를 시작할 때 사용할 수 있는 최소 설정 템플릿:
+새 프로젝트를 시작할 때 사용할 수 있는 최소 `.env` 템플릿:
 
-```yaml
-# R2 설정은 .env 파일을 사용하세요.
+```bash
+R2_ACCESS_KEY=your-access-key
+R2_SECRET_KEY=your-secret-key
+R2_ENDPOINT=https://your-account-id.r2.cloudflarestorage.com
+R2_BUCKET=your-bucket
 
-conversion:
-  formats: ["jpeg", "jpg", "png", "gif"]
-  quality: 85
-  max_size_mb: 50
-
-resize:
-  presets:
-    thumbnail:
-      width: 150
-      height: 150
-    medium:
-      width: 800
-      height: 800
-    large:
-      width: 1920
-      height: 1920
-
-cron:
-  schedule: "0 2 * * *"
-  enabled: true
-
-server:
-  port: 8080
-  timeout_seconds: 30
+SERVER_PORT=4000
+SERVER_TIMEOUT_SECONDS=30
+CONVERSION_FORMATS=jpeg,jpg,png,gif
+CONVERSION_QUALITY=85
+CONVERSION_MAX_SIZE_MB=50
+RESIZE_PRESETS=thumbnail:150x150,medium:800x800,large:1920x1920
+CRON_SCHEDULE=0 2 * * *
+CRON_ENABLED=true
 ```
 
 ---
 
 ## 설정 변경 시 주의사항
 
-1. **서버 재시작 필요**: 설정 파일 변경 후 서버를 재시작해야 변경사항이 적용됩니다.
+1. **서버 재시작 필요**: `.env` 또는 환경 변수 변경 후 서버를 재시작해야 변경사항이 적용됩니다.
 
 2. **크론 스케줄 변경**: 크론 스케줄을 변경하면 다음 실행 시간부터 적용됩니다.
 
@@ -414,11 +400,11 @@ server:
 
 ## 트러블슈팅
 
-### 설정 파일을 찾을 수 없음
+### 필수 환경 변수를 찾을 수 없음
 ```
-Error: config file not found: config/config.yaml
+Error: required field missing: r2.access_key
 ```
-**해결**: `config/config.yaml`이 없어도 됩니다. `.env`에 R2 접속 정보(`R2_ACCESS_KEY`, `R2_SECRET_KEY`, `R2_ENDPOINT`)와 `R2_BUCKET` 또는 `R2_BUCKETS`가 설정되어 있으면 서버는 환경 변수만으로 기동됩니다. `cp .env.example .env` 후 값을 채우세요.
+**해결**: `.env`에 R2 접속 정보(`R2_ACCESS_KEY`, `R2_SECRET_KEY`, `R2_ENDPOINT`)와 `R2_BUCKET` 또는 `R2_BUCKETS`가 설정되어 있는지 확인하세요. `cp .env.example .env` 후 값을 채우면 됩니다.
 
 ### 필수 필드 누락
 ```

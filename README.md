@@ -7,7 +7,7 @@ A high-performance image processing service built with Go, designed for seamless
 - **Automated WebP Conversion**: Automatically converts various image formats (JPEG, PNG, GIF, BMP, TIFF) to WebP to reduce storage and bandwidth costs.
 - **Cloudflare R2 Integration**: Specifically optimized for Cloudflare R2, providing a cost-effective alternative to AWS S3.
 - **On-the-fly Resizing**: Resize images dynamically using HTTP query parameters or predefined presets (e.g., thumbnail, medium, large).
-- **Scheduled Cron Jobs**: Periodically scans your R2 bucket for new images and converts them automatically to keep your storage optimized.
+- **Scheduled Cron Jobs**: Periodically scans one or more R2 buckets for new images and converts them automatically to keep your storage optimized.
 - **State Management**: Tracks processing status to ensure efficient incremental updates without reprocessing existing images.
 - **Webhooks**: Notifies your endpoint when a cron batch completes, with optional retry for failed deliveries.
 
@@ -59,14 +59,14 @@ Configuration is done via **environment variables** (and optionally a `.env` fil
 cp .env.example .env
 ```
 
-All settings (R2, conversion, resize presets, cron, server) can be set in `.env`. If `config/config.yaml` exists, it is loaded first and env vars override it; if the file is missing, the server runs with env (and defaults) only.
+All runtime settings (R2, conversion, resize presets, cron, server) are loaded from environment variables and `.env` via `config.LoadFromEnv()`. `config/config.yaml` is kept only as a legacy/sample reference and is not read by `main.go`.
 
 - **R2**: set `R2_BUCKET` for one bucket, or `R2_BUCKETS=bucket-a,bucket-b` to process multiple buckets in the same R2 account.
 - **Conversion**: `CONVERSION_FORMATS`, `CONVERSION_QUALITY`, `CONVERSION_MAX_SIZE_MB`
 - **Resize presets**: optional `RESIZE_PRESETS=thumbnail:150x150,medium:800x800` (used as `?preset=thumbnail` in API)
 - **Cron**: `CRON_SCHEDULE`, `CRON_ENABLED` (set `CRON_ENABLED=true` to enable the scheduled job)
 
-Cron uses standard cron expression **(minute hour day month weekday)** in **server local time**. Default `"0 12 * * *"` runs at **UTC 12:00** (noon UTC). On a UTC server that equals **21:00 KST**. Adjust the hour if your server uses a different timezone. See [docs/CRON.md](docs/CRON.md) for details.
+Cron uses standard cron expression **(minute hour day month weekday)** in **server local time**. Default `"0 2 * * *"` runs at **02:00** in the server timezone. Adjust the hour if your server uses a different timezone. See [docs/history/CRON.md](docs/history/CRON.md) for details.
 
 ### Webhook (batch completion notification)
 
@@ -158,7 +158,7 @@ Admins can trigger the same webhook on demand (e.g. for testing or to notify abo
 
 ### Documentation
 
-- [API](docs/API.md) · [Config](docs/CONFIG.md) · [Cron](docs/CRON.md) · [Usage](docs/USAGE.md)
+- [API](docs/history/API.md) · [Config](docs/history/CONFIG.md) · [Cron](docs/history/CRON.md) · [Usage](docs/history/USAGE.md)
 
 ## License
 

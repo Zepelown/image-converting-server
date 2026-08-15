@@ -1,7 +1,7 @@
 ## HTTP API Spec
 
 이 문서는 현재 구현된 HTTP API의 실제 동작을 정리한 스펙입니다.
-모든 내용은 `main.go`, `api/handlers.go`, `docs/API.md`를 기준으로 합니다.
+모든 내용은 `main.go`, `api/handlers.go`, `docs/history/API.md`를 기준으로 합니다.
 
 ---
 
