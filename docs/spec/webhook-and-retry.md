@@ -56,7 +56,8 @@
   - `"manual.triggered"`: `POST /api/webhook/send`에서 수동 호출 시.
 - `processed_count`: 성공적으로 처리된 이미지 수.
 - `failed_count`: 처리 실패한 이미지 수.
-- `images`: 성공적으로 변환된(또는 수동으로 전달된) 이미지 목록.
+- `images`: 성공적으로 변환된(또는 수동으로 전달된) 이미지 목록. 변환 결과가 없으면
+  JSON에서는 반드시 빈 배열(`[]`)로 직렬화하며 `null`로 전송하지 않는다.
 
 ---
 
