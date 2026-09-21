@@ -28,6 +28,16 @@ type BatchPayload struct {
 	Images         []ImageEntry `json:"images"`
 }
 
+// MarshalJSON serializes an absent image list as an empty JSON array because
+// webhook receivers require images to be an array, even for an empty batch.
+func (p BatchPayload) MarshalJSON() ([]byte, error) {
+	type batchPayload BatchPayload
+	if p.Images == nil {
+		p.Images = []ImageEntry{}
+	}
+	return json.Marshal(batchPayload(p))
+}
+
 // SendBulk POSTs the payload to the given URL as JSON. If url is empty, it returns nil without sending.
 // Timeout is applied to the HTTP client. On failure, logs and returns the error.
 func SendBulk(ctx context.Context, url string, payload *BatchPayload, timeout time.Duration) error {
