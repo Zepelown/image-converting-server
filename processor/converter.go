@@ -13,8 +13,8 @@ import (
 
 	"image-converting-server/config"
 
+	"github.com/KarpelesLab/gowebp"
 	"github.com/disintegration/imaging"
-	"github.com/skrashevich/go-libwebp/webp"
 )
 
 // Processor handles image conversion and resizing
@@ -61,22 +61,23 @@ func (p *Processor) Process(data []byte, options ProcessOptions) ([]byte, string
 	return webpData, format, nil
 }
 
-// ConvertToWebP encodes an image to WebP format (CGO-free, works on Windows without GCC).
+// ConvertToWebP encodes an image to lossy WebP format (CGO-free, works on Windows without GCC).
 func (p *Processor) ConvertToWebP(img image.Image) ([]byte, error) {
 	var buf bytes.Buffer
-	// Quality is 0-100 in config; go-libwebp expects (0, 1]
-	q := float32(p.cfg.Conversion.Quality) / 100
-	if q <= 0 {
-		q = 0.9
-	}
-	if q > 1 {
-		q = 1
-	}
-	err := webp.Encode(&buf, img, webp.Quality(q))
+	err := gowebp.Encode(&buf, img, webpEncodingOptions(p.cfg.Conversion.Quality))
 	if err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// webpEncodingOptions maps the public 0-100 configuration scale directly to
+// the encoder's lossy quality scale.
+func webpEncodingOptions(quality int) *gowebp.Options {
+	return &gowebp.Options{
+		Lossy:   true,
+		Quality: float32(quality),
+	}
 }
 
 // ResizeImage resizes the image while maintaining aspect ratio if one dimension is 0

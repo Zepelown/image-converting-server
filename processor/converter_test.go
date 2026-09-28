@@ -74,6 +74,9 @@ func TestProcessor_Process(t *testing.T) {
 		if mime != "image/webp" {
 			t.Errorf("expected image/webp result, got %s", mime)
 		}
+		if !bytes.Contains(webpData, []byte("VP8 ")) {
+			t.Error("expected lossy VP8 WebP output")
+		}
 	})
 
 	t.Run("Resize with dimensions", func(t *testing.T) {
@@ -139,5 +142,16 @@ func TestGetMimeType(t *testing.T) {
 	}
 	if GetMimeType(pngData) != "image/png" {
 		t.Errorf("expected image/png, got %s", GetMimeType(pngData))
+	}
+}
+
+func TestWebPEncodingOptions_UsesConfiguredQuality(t *testing.T) {
+	opts := webpEncodingOptions(85)
+
+	if !opts.Lossy {
+		t.Error("expected lossy WebP encoding")
+	}
+	if opts.Quality != 85 {
+		t.Errorf("expected encoder quality 85, got %v", opts.Quality)
 	}
 }
